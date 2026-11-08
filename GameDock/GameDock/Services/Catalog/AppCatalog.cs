@@ -65,6 +65,23 @@ public static class AppCatalog
             ExeName = "LE.SaveEditor.exe",
             // LE.SaveEditor-Setup-0.1.7.exe
             InstallerAssetPattern = new Regex(@"^LE\.SaveEditor-Setup.*\.exe$", PatternOptions)
+        },
+        new ManagedApp
+        {
+            Id = "scroll-keepers",
+            Name = "ScrollKeeper",
+            NameAccent = "Scroll",
+            NameRest = "Keeper",
+            Tagline = "Elder Scrolls Online addon manager",
+            Description = "Browse the ESOUI catalog, install addons with their required libraries, and remove them safely.",
+            AccentColor = "#4FC9BE",
+            IconUri = "pack://application:,,,/GameDock;component/Assets/Apps/scroll-keepers.png",
+            Owner = Owner,
+            Repository = "scroll-keepers",
+            InnoAppId = "{D7CE39B7-4E58-4D9F-9A5B-C46B7B22708B}",
+            ExeName = "ScrollKeeper.exe",
+            // ScrollKeeper-Setup-0.1.12.exe
+            InstallerAssetPattern = new Regex(@"^ScrollKeeper-Setup.*\.exe$", PatternOptions)
         }
     ];
 }
