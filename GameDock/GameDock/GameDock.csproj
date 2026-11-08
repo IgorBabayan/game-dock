@@ -6,12 +6,25 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <UseWPF>true</UseWPF>
+        <AssemblyName>GameDock</AssemblyName>
+        <RootNamespace>GameDock</RootNamespace>
+        <Product>Game Dock</Product>
+        <Company>IgorBabayan</Company>
+        <!-- Major.Minor for releases; CI appends the build number as the patch part. -->
+        <VersionPrefix>0.1.0</VersionPrefix>
+        <ApplicationIcon>App.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0-rc.3.26522.148" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0-rc.3.26522.148" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <!-- Embedded so XAML can load them with pack:// URIs: window icon, title bar logo and the app icons on the cards. -->
+      <Resource Include="App.ico" />
+      <Resource Include="Assets\**\*.png" />
     </ItemGroup>
 
 </Project>
