@@ -1,0 +1,35 @@
+<!-- Game Dock color palette (dark). Keys follow the other apps (GD / LE Save Editor) where they overlap. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <SolidColorBrush x:Key="TitleBarBackgroundBrush"         Color="#0E0F11" />
+    <SolidColorBrush x:Key="TitleBarInactiveForegroundBrush" Color="#6B6E76" />
+    <SolidColorBrush x:Key="WindowBackgroundBrush"           Color="#121316" />
+    <SolidColorBrush x:Key="WindowBorderBrush"               Color="#2A2C31" />
+    <SolidColorBrush x:Key="WindowForegroundBrush"           Color="#E8E9EC" />
+    <SolidColorBrush x:Key="SecondaryForegroundBrush"        Color="#9A9DA5" />
+    <SolidColorBrush x:Key="MutedForegroundBrush"            Color="#6B6E76" />
+    <SolidColorBrush x:Key="CaptionButtonHoverBrush"         Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="CaptionButtonPressedBrush"       Color="#16FFFFFF" />
+    <SolidColorBrush x:Key="CloseButtonHoverBrush"           Color="#C42B1C" />
+    <SolidColorBrush x:Key="CloseButtonPressedBrush"         Color="#A32317" />
+    <SolidColorBrush x:Key="CardBackgroundBrush"             Color="#15161A" />
+    <SolidColorBrush x:Key="CardHoverBackgroundBrush"        Color="#1A1B20" />
+    <SolidColorBrush x:Key="CardBorderBrush"                 Color="#2A2C31" />
+    <SolidColorBrush x:Key="ControlBackgroundBrush"          Color="#0F1013" />
+    <SolidColorBrush x:Key="ControlBorderBrush"              Color="#34363C" />
+    <SolidColorBrush x:Key="ControlHoverBorderBrush"         Color="#5A5D66" />
+    <SolidColorBrush x:Key="ButtonHoverBackgroundBrush"      Color="#1F2026" />
+    <SolidColorBrush x:Key="ButtonPressedBackgroundBrush"    Color="#26282E" />
+    <SolidColorBrush x:Key="PrimaryButtonBackgroundBrush"    Color="#E8E9EC" />
+    <SolidColorBrush x:Key="PrimaryButtonHoverBrush"         Color="#FFFFFF" />
+    <SolidColorBrush x:Key="PrimaryButtonForegroundBrush"    Color="#0E0F11" />
+    <SolidColorBrush x:Key="AccentBrush"                     Color="#7AA7FF" />
+    <SolidColorBrush x:Key="SelectionBackgroundBrush"        Color="#26324A" />
+    <SolidColorBrush x:Key="ListItemHoverBackgroundBrush"    Color="#1F2026" />
+    <SolidColorBrush x:Key="ChipForegroundBrush"             Color="#8FB3FF" />
+    <SolidColorBrush x:Key="WarningForegroundBrush"          Color="#E5B95C" />
+    <SolidColorBrush x:Key="ErrorForegroundBrush"            Color="#F1707B" />
+    <SolidColorBrush x:Key="SuccessForegroundBrush"          Color="#5FCB8A" />
+
+</ResourceDictionary>

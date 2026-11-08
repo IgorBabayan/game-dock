@@ -8,4 +8,10 @@
         <UseWPF>true</UseWPF>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0-rc.3.26522.148" />
+      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="11.0.0-rc.3.26522.148" />
+    </ItemGroup>
+
 </Project>

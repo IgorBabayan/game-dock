@@ -1,0 +1,534 @@
+<Window x:Class="GameDock.Presentation.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:vm="clr-namespace:GameDock.Presentation.ViewModels"
+        xmlns:converters="clr-namespace:GameDock.Presentation.Converters"
+        xmlns:toastViews="clr-namespace:GameDock.Presentation.Views.Toasts"
+        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}"
+        Title="Game Dock"
+        Icon="pack://application:,,,/GameDock;component/App.ico"
+        Width="1120"
+        Height="760"
+        MinWidth="720"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource UiFont}"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource WindowForegroundBrush}">
+
+    <!--
+        WindowChrome removes the native title bar but keeps native behaviour: drag to move, resize from the edges,
+        double-click to maximize, Alt+Space menu. Minimize / Maximize / Close are drawn in the title bar.
+    -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="48"
+                            ResizeBorderThickness="6"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.CommandBindings>
+        <CommandBinding Command="{x:Static SystemCommands.MinimizeWindowCommand}" Executed="OnMinimizeExecuted" />
+        <CommandBinding Command="{x:Static SystemCommands.MaximizeWindowCommand}" Executed="OnMaximizeExecuted" />
+        <CommandBinding Command="{x:Static SystemCommands.RestoreWindowCommand}" Executed="OnRestoreExecuted" />
+        <CommandBinding Command="{x:Static SystemCommands.CloseWindowCommand}" Executed="OnCloseExecuted" />
+        <!-- Ctrl+F (the built-in gesture of Find) focuses the search box. -->
+        <CommandBinding Command="{x:Static ApplicationCommands.Find}" Executed="OnFindExecuted" />
+    </Window.CommandBindings>
+
+    <Window.InputBindings>
+        <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter" />
+        <converters:WidthToColumnsConverter x:Key="WidthToColumnsConverter" MinCardWidth="330" MaxColumns="3" />
+
+        <!-- "…" menu shared by the card and the row templates. DataContext is set when it opens (OnMoreClick). -->
+        <ContextMenu x:Key="AppMenu" x:Shared="False" d:DataContext="{d:DesignInstance Type=vm:AppCardViewModel, IsDesignTimeCreatable=False}">
+            <MenuItem Header="Open" Tag="&#xE8A7;" Command="{Binding OpenCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <MenuItem Header="Install" Tag="&#xE896;" Command="{Binding InstallCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource InverseBooleanToVisibilityConverter}}" />
+            <MenuItem Header="Update" Tag="&#xE895;" Command="{Binding UpdateCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <MenuItem Header="Reinstall latest version" Tag="&#xE90F;" Command="{Binding ReinstallCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Separator />
+            <MenuItem Header="Open install folder" Tag="&#xE8B7;" Command="{Binding OpenFolderCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <MenuItem Header="Release notes" Tag="&#xE8A5;" Command="{Binding OpenReleasesCommand}" />
+            <MenuItem Header="View on GitHub" Tag="&#xE774;" Command="{Binding OpenGitHubCommand}" />
+            <Separator Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <MenuItem Header="Remove" Tag="&#xE74D;" Command="{Binding RemoveCommand}"
+                      Visibility="{Binding IsInstalled, Converter={StaticResource BooleanToVisibilityConverter}}" />
+        </ContextMenu>
+
+        <!-- Main action button of an app: OPEN / INSTALL, or a filled UPDATE when a newer release exists. -->
+        <Style x:Key="AppPrimaryButtonStyle" TargetType="Button" BasedOn="{StaticResource OutlineButtonStyle}">
+            <Setter Property="Content" Value="{Binding PrimaryText}" />
+            <Setter Property="Command" Value="{Binding PrimaryCommand}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUpdateAvailable}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource PrimaryButtonBackgroundBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryButtonBackgroundBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryButtonForegroundBrush}" />
+                    <Setter Property="Template" Value="{StaticResource FilledButtonTemplate}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Version in the card header: app color when installed, grey when only available. -->
+        <Style x:Key="VersionTextStyle" TargetType="TextBlock" BasedOn="{StaticResource MonoLabelStyle}">
+            <Setter Property="Text" Value="{Binding VersionText}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsInstalled}" Value="True">
+                    <Setter Property="Foreground" Value="{Binding AccentBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Status chip: blue "AVAILABLE TO INSTALL", amber "UPDATE AVAILABLE". -->
+        <Style x:Key="StatusChipStyle" TargetType="Border" BasedOn="{StaticResource ChipBorderStyle}">
+            <Setter Property="Visibility" Value="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUpdateAvailable}" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource WarningForegroundBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StatusChipTextStyle" TargetType="TextBlock" BasedOn="{StaticResource MonoLabelStyle}">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Text" Value="{Binding StatusText}" />
+            <Setter Property="Foreground" Value="{DynamicResource ChipForegroundBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsUpdateAvailable}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- App name drawn in two colors: "GD" in the app color + " Save Editor". -->
+        <DataTemplate x:Key="AppNameTemplate" DataType="{x:Type vm:AppCardViewModel}">
+            <TextBlock FontWeight="Bold" TextTrimming="CharacterEllipsis"><Run Text="{Binding NameAccent, Mode=OneWay}" Foreground="{Binding AccentBrush, Mode=OneWay}" /><Run Text="{Binding NameRest, Mode=OneWay}" /></TextBlock>
+        </DataTemplate>
+
+        <!-- Progress shown while an app is being downloaded, installed or removed. -->
+        <DataTemplate x:Key="BusyTemplate" DataType="{x:Type vm:AppCardViewModel}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Style="{StaticResource MonoLabelStyle}"
+                               Text="{Binding BusyText}"
+                               TextTrimming="CharacterEllipsis" />
+                    <ProgressBar Margin="0,8,0,0"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding Progress, Mode=OneWay, TargetNullValue=0}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Style="{StaticResource TextLinkButtonStyle}"
+                        Content="CANCEL"
+                        Command="{Binding CancelCommand}"
+                        Visibility="{Binding CanCancel, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ===== Grid view: one card per app ===== -->
+        <DataTemplate x:Key="AppCardTemplate" DataType="{x:Type vm:AppCardViewModel}">
+            <!-- Negative margin lets neighbouring cards share one 1px border, like a table. -->
+            <Border Margin="0,0,-1,-1"
+                    MinHeight="300"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /> <!-- version / GitHub -->
+                        <RowDefinition Height="*" />    <!-- icon, name, description -->
+                        <RowDefinition Height="Auto" /> <!-- actions -->
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="20,10,12,10">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Style="{StaticResource VersionTextStyle}" />
+                            <Button DockPanel.Dock="Right"
+                                    Style="{StaticResource TextLinkButtonStyle}"
+                                    Content="GITHUB &#x2197;"
+                                    ToolTip="{Binding App.RepositoryUrl}"
+                                    Command="{Binding OpenGitHubCommand}" />
+                        </DockPanel>
+                    </Border>
+
+                    <StackPanel Grid.Row="1" Margin="20,18,20,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Width="56" Height="56">
+                                <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <WrapPanel>
+                                    <ContentPresenter Content="{Binding}"
+                                                      ContentTemplate="{StaticResource AppNameTemplate}"
+                                                      TextElement.FontSize="22"
+                                                      VerticalAlignment="Center"
+                                                      Margin="0,0,8,0" />
+                                    <Border Style="{StaticResource ChipBorderStyle}" VerticalAlignment="Center">
+                                        <TextBlock Style="{StaticResource MonoLabelStyle}" FontSize="10" Text="BY IGORBABAYAN"
+                                                   Foreground="{DynamicResource ChipForegroundBrush}" />
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Margin="0,2,0,0" FontSize="13" Text="{Binding Tagline}"
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Margin="0,16,0,0" Style="{StaticResource StatusChipStyle}">
+                            <TextBlock Style="{StaticResource StatusChipTextStyle}" />
+                        </Border>
+
+                        <TextBlock Margin="0,16,0,0" FontSize="13" TextWrapping="Wrap" Text="{Binding Description}" />
+                        <TextBlock Margin="0,8,0,0" FontSize="12" Text="{Binding LastUpdatedText}"
+                                   Foreground="{DynamicResource MutedForegroundBrush}" />
+                    </StackPanel>
+
+                    <Grid Grid.Row="2" Margin="20,0,20,20" MinHeight="34">
+                        <!-- Actions -->
+                        <Grid Visibility="{Binding IsBusy, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Style="{StaticResource AppPrimaryButtonStyle}" />
+                            <Button Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    Style="{StaticResource IconButtonStyle}"
+                                    Content="&#xE712;"
+                                    ToolTip="More actions"
+                                    AutomationProperties.Name="More actions"
+                                    Click="OnMoreClick" />
+                        </Grid>
+
+                        <!-- Download / install / remove progress -->
+                        <ContentPresenter Content="{Binding}"
+                                          ContentTemplate="{StaticResource BusyTemplate}"
+                                          VerticalAlignment="Center"
+                                          Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- ===== List view: one row per app ===== -->
+        <DataTemplate x:Key="AppRowTemplate" DataType="{x:Type vm:AppCardViewModel}">
+            <Border Margin="0,0,0,-1"
+                    Padding="16,12"
+                    Background="{DynamicResource CardBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />  <!-- icon -->
+                        <ColumnDefinition Width="*" />     <!-- name -->
+                        <ColumnDefinition Width="110" />   <!-- version -->
+                        <ColumnDefinition Width="260" />   <!-- status / progress -->
+                        <ColumnDefinition Width="Auto" />  <!-- actions -->
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Width="36" Height="36">
+                        <Image Source="{Binding Icon}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                        <ContentPresenter Content="{Binding}" ContentTemplate="{StaticResource AppNameTemplate}" TextElement.FontSize="15" />
+                        <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}">
+                            <Run Text="{Binding Tagline, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding LastUpdatedText, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2" Style="{StaticResource VersionTextStyle}" />
+
+                    <Grid Grid.Column="3" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Border Style="{StaticResource StatusChipStyle}">
+                            <TextBlock Style="{StaticResource StatusChipTextStyle}" />
+                        </Border>
+                        <ContentPresenter Content="{Binding}"
+                                          ContentTemplate="{StaticResource BusyTemplate}"
+                                          Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding IsBusy, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                        <Button Width="110" Style="{StaticResource AppPrimaryButtonStyle}" />
+                        <Button Margin="8,0,0,0"
+                                Style="{StaticResource IconButtonStyle}"
+                                Content="&#xE712;"
+                                ToolTip="More actions"
+                                AutomationProperties.Name="More actions"
+                                Click="OnMoreClick" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <ItemsPanelTemplate x:Key="CardsPanel">
+            <!-- Columns follow the width of the scroll area: 1 to 3 cards per row. -->
+            <UniformGrid Margin="0,0,1,1"
+                         VerticalAlignment="Top"
+                         Columns="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}, Converter={StaticResource WidthToColumnsConverter}}" />
+        </ItemsPanelTemplate>
+
+        <ItemsPanelTemplate x:Key="RowsPanel">
+            <StackPanel Margin="0,0,0,1" />
+        </ItemsPanelTemplate>
+
+        <!-- Both sections switch between cards and rows with the view toggle. -->
+        <Style x:Key="AppsItemsControlStyle" TargetType="ItemsControl">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="ItemTemplate" Value="{StaticResource AppCardTemplate}" />
+            <Setter Property="ItemsPanel" Value="{StaticResource CardsPanel}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsListView}" Value="True">
+                    <Setter Property="ItemTemplate" Value="{StaticResource AppRowTemplate}" />
+                    <Setter Property="ItemsPanel" Value="{StaticResource RowsPanel}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder"
+            BorderBrush="{DynamicResource WindowBorderBrush}"
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />   <!-- title bar -->
+                <RowDefinition Height="Auto" /> <!-- toolbar -->
+                <RowDefinition Height="*" />    <!-- apps -->
+                <RowDefinition Height="32" />   <!-- status bar -->
+            </Grid.RowDefinitions>
+
+            <!-- ===== Title bar ===== -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TitleBarBackgroundBrush}"
+                    BorderBrush="{DynamicResource WindowBorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" /> <!-- logo -->
+                        <ColumnDefinition Width="Auto" /> <!-- subtitle -->
+                        <ColumnDefinition Width="*" />    <!-- drag area -->
+                        <ColumnDefinition Width="Auto" /> <!-- settings -->
+                        <ColumnDefinition Width="Auto" /> <!-- min / max / close -->
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,22,0" VerticalAlignment="Center">
+                        <Image Width="22" Height="22" Source="pack://application:,,,/GameDock;component/Assets/logo.png"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <TextBlock x:Name="TitleText"
+                                   Margin="10,0,0,0"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Text="GAME DOCK" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1,0,0,0" Padding="16,0">
+                        <TextBlock Style="{StaticResource MonoLabelStyle}" Text="APP LAUNCHER" />
+                    </Border>
+
+                    <Border Grid.Column="3" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1,0,1,0">
+                        <Grid>
+                            <Button Width="48"
+                                    Height="47"
+                                    Style="{StaticResource TitleBarToolButtonStyle}"
+                                    Content="&#xE713;"
+                                    ToolTip="Settings"
+                                    AutomationProperties.Name="Settings"
+                                    Command="{Binding OpenSettingsCommand}" />
+                            <!-- Dot: a newer Game Dock is available. -->
+                            <Ellipse Width="7" Height="7" Margin="0,12,12,0"
+                                     HorizontalAlignment="Right" VerticalAlignment="Top"
+                                     IsHitTestVisible="False"
+                                     Fill="{DynamicResource WarningForegroundBrush}"
+                                     Visibility="{Binding HasLauncherUpdate, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal">
+                        <Button Height="47"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Content="&#xE921;"
+                                ToolTip="Minimize"
+                                Command="{x:Static SystemCommands.MinimizeWindowCommand}" />
+                        <Button x:Name="MaximizeButton"
+                                Height="47"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Content="&#xE922;"
+                                ToolTip="Maximize"
+                                Command="{x:Static SystemCommands.MaximizeWindowCommand}" />
+                        <Button x:Name="RestoreButton"
+                                Height="47"
+                                Visibility="Collapsed"
+                                Style="{StaticResource CaptionButtonStyle}"
+                                Content="&#xE923;"
+                                ToolTip="Restore Down"
+                                Command="{x:Static SystemCommands.RestoreWindowCommand}" />
+                        <Button Height="47"
+                                Style="{StaticResource CloseCaptionButtonStyle}"
+                                Content="&#xE8BB;"
+                                ToolTip="Close"
+                                Command="{x:Static SystemCommands.CloseWindowCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===== Toolbar ===== -->
+            <Grid Grid.Row="1" Margin="20,18,20,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Style="{StaticResource IconButtonStyle}"
+                            Content="&#xE72C;"
+                            ToolTip="Check for new releases (F5)"
+                            AutomationProperties.Name="Check for new releases"
+                            Command="{Binding RefreshCommand}" />
+                    <Button Margin="10,0,0,0"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Content="{Binding UpdateAllText}"
+                            Command="{Binding UpdateAllCommand}"
+                            Visibility="{Binding HasUpdates, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock Margin="0,0,10,0" Style="{StaticResource MonoLabelStyle}" Text="SORT"
+                               Foreground="{DynamicResource MutedForegroundBrush}" />
+                    <ComboBox Width="190"
+                              Style="{StaticResource DarkComboBoxStyle}"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedItem="{Binding SelectedSort}"
+                              DisplayMemberPath="Label"
+                              AutomationProperties.Name="Sort apps" />
+                    <Grid Margin="8,0,0,0" Width="200">
+                        <TextBox x:Name="SearchBox"
+                                 Style="{StaticResource SearchTextBoxStyle}"
+                                 Tag="Search apps"
+                                 Padding="8,0,28,0"
+                                 AutomationProperties.Name="Search apps"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <TextBlock Margin="0,0,10,0"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource IconFont}"
+                                   FontSize="12"
+                                   Text="&#xE721;"
+                                   IsHitTestVisible="False"
+                                   Foreground="{DynamicResource MutedForegroundBrush}" />
+                    </Grid>
+                    <Border Margin="12,0,0,0" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton GroupName="ViewMode"
+                                         Style="{StaticResource SegmentRadioButtonStyle}"
+                                         Content="&#xF0E2;"
+                                         ToolTip="Grid"
+                                         AutomationProperties.Name="Grid view"
+                                         IsChecked="{Binding IsGridView, Mode=OneWay}"
+                                         Command="{Binding ShowGridCommand}" />
+                            <RadioButton GroupName="ViewMode"
+                                         Style="{StaticResource SegmentRadioButtonStyle}"
+                                         Content="&#xE8FD;"
+                                         ToolTip="List"
+                                         AutomationProperties.Name="List view"
+                                         IsChecked="{Binding IsListView, Mode=OneWay}"
+                                         Command="{Binding ShowListCommand}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- ===== Apps ===== -->
+            <ScrollViewer x:Name="AppsScroll"
+                          Grid.Row="2"
+                          Margin="0,18,0,0"
+                          Padding="20,0,20,20"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Focusable="False">
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,10"
+                               Style="{StaticResource SectionHeaderStyle}"
+                               Text="INSTALLED"
+                               Visibility="{Binding HasInstalledApps, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <ItemsControl Style="{StaticResource AppsItemsControlStyle}"
+                                  ItemsSource="{Binding InstalledApps}"
+                                  Visibility="{Binding HasInstalledApps, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <TextBlock Style="{StaticResource SectionHeaderStyle}"
+                               Text="NOT INSTALLED"
+                               Visibility="{Binding HasAvailableApps, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <ItemsControl Style="{StaticResource AppsItemsControlStyle}"
+                                  ItemsSource="{Binding AvailableApps}"
+                                  Visibility="{Binding HasAvailableApps, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                    <TextBlock Margin="0,60,0,0"
+                               HorizontalAlignment="Center"
+                               Style="{StaticResource SecondaryTextStyle}"
+                               FontSize="14"
+                               Text="No apps match your search."
+                               Visibility="{Binding HasNoMatches, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== Status bar ===== -->
+            <Border Grid.Row="3"
+                    Background="{DynamicResource TitleBarBackgroundBrush}"
+                    BorderBrush="{DynamicResource WindowBorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="20,0,12,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Style="{StaticResource TextLinkButtonStyle}"
+                            Content="GITHUB &#x2197;"
+                            ToolTip="{Binding RepositoryUrl}"
+                            Command="{Binding OpenRepositoryCommand}" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Margin="0,0,8,0"
+                               Style="{StaticResource MonoLabelStyle}"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="{Binding LauncherVersionText}" />
+                    <TextBlock Style="{StaticResource MonoLabelStyle}"
+                               Foreground="{DynamicResource MutedForegroundBrush}"
+                               Text="{Binding LastCheckedText}" />
+                </DockPanel>
+            </Border>
+
+            <!-- Toasts float above everything, bottom-right. -->
+            <toastViews:ToastHost Grid.Row="0" Grid.RowSpan="4" Margin="16,16,16,44" />
+        </Grid>
+    </Border>
+</Window>
