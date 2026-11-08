@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -17,6 +18,10 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
     };
+
+    /// <summary>Pauses between download attempts; one more attempt than there are delays.</summary>
+    private static readonly TimeSpan[] DownloadRetryDelays =
+        [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)];
 
     private readonly HttpClient _http;
 
@@ -88,29 +93,25 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         var targetPath = Path.Combine(folder, Path.GetFileName(asset.Name));
         var partialPath = targetPath + ".part";
 
+        // Never resume from a leftover of an earlier, unrelated download.
+        TryDelete(partialPath);
+
         try
         {
-            using (var response = await _http
-                       .GetAsync(asset.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                       .ConfigureAwait(false))
+            for (var attempt = 1; ; attempt++)
             {
-                response.EnsureSuccessStatusCode();
-
-                var total = response.Content.Headers.ContentLength ?? asset.Size;
-                await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                await using var target = new FileStream(
-                    partialPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-
-                var buffer = new byte[81920];
-                long received = 0;
-                int read;
-                progress?.Report(new DownloadProgress(0, total));
-
-                while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                try
                 {
-                    await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                    received += read;
-                    progress?.Report(new DownloadProgress(received, total));
+                    await DownloadToFileAsync(asset, partialPath, progress, cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+                catch (Exception ex) when (attempt < DownloadRetryDelays.Length + 1 &&
+                                           IsTransientDownloadError(ex, cancellationToken))
+                {
+                    // GitHub's release CDN regularly answers 502/503/504 for a short while (especially right
+                    // after an asset is published) or drops the connection: wait and continue where we stopped.
+                    Debug.WriteLine($"Download attempt {attempt} of {asset.Name} failed: {ex.Message}");
+                    await Task.Delay(DownloadRetryDelays[attempt - 1], cancellationToken).ConfigureAwait(false);
                 }
             }
 
@@ -124,6 +125,86 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
             TryDelete(partialPath);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Downloads <paramref name="asset"/> into <paramref name="path"/>, resuming with an HTTP range request
+    /// when the file already holds part of it and the server supports ranges.
+    /// </summary>
+    private async Task DownloadToFileAsync(
+        ReleaseAsset asset,
+        string path,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var existing = File.Exists(path) ? new FileInfo(path).Length : 0;
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, asset.DownloadUrl);
+        if (existing > 0)
+            request.Headers.Range = new RangeHeaderValue(existing, null);
+
+        using var response = await _http
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
+
+        // The previous attempt already received the whole file.
+        if (existing > 0 && existing == asset.Size &&
+            response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
+            return;
+
+        EnsureDownloadSucceeded(response);
+
+        // Server ignored the range (200 instead of 206): start over.
+        var resume = existing > 0 && response.StatusCode == HttpStatusCode.PartialContent;
+        var received = resume ? existing : 0;
+        var total = asset.Size > 0
+            ? asset.Size
+            : response.Content.Headers.ContentLength is { } length ? length + received : 0;
+
+        await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        await using var target = new FileStream(
+            path, resume ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+
+        var buffer = new byte[81920];
+        int read;
+        progress?.Report(new DownloadProgress(received, total));
+
+        while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        {
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            received += read;
+            progress?.Report(new DownloadProgress(received, total));
+        }
+    }
+
+    private static void EnsureDownloadSucceeded(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var code = (int)response.StatusCode;
+        var message = code >= 500
+            ? $"GitHub's download server is not responding ({code} {response.ReasonPhrase}). Please try again in a few minutes."
+            : $"Download failed: {code} {response.ReasonPhrase}.";
+
+        throw new HttpRequestException(message, null, response.StatusCode);
+    }
+
+    /// <summary>Server-side hiccups and dropped connections that are worth another attempt.</summary>
+    private static bool IsTransientDownloadError(Exception ex, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+            return false;
+
+        return ex switch
+        {
+            HttpRequestException { StatusCode: null } => true, // DNS / connection failure
+            HttpRequestException { StatusCode: { } status } =>
+                status is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests || (int)status >= 500,
+            HttpIOException => true, // connection closed while reading the body
+            IOException { InnerException: SocketException } => true,
+            _ => false
+        };
     }
 
     public void Dispose() => _http.Dispose();
