@@ -30,6 +30,8 @@ AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#AppVersion}
+VersionInfoProductName={#AppName}
+VersionInfoDescription={#AppName} Setup
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -60,6 +62,16 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[InstallDelete]
+; Versions before the rename were called "Game Dock". An upgrade keeps their shortcuts,
+; so remove them here; the [Icons] section below creates the "App Launcher" ones.
+Type: files; Name: "{userprograms}\Game Dock.lnk"
+Type: files; Name: "{commonprograms}\Game Dock.lnk"
+Type: files; Name: "{userdesktop}\Game Dock.lnk"
+Type: files; Name: "{commondesktop}\Game Dock.lnk"
+Type: filesandordirs; Name: "{userprograms}\Game Dock"
+Type: filesandordirs; Name: "{commonprograms}\Game Dock"
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExeName}"
