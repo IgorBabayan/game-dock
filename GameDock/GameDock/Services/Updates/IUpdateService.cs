@@ -2,7 +2,7 @@ using GameDock.Services.GitHub;
 
 namespace GameDock.Services.Updates;
 
-/// <summary>Checks GitHub Releases of Game Dock itself for a newer version and installs it.</summary>
+/// <summary>Checks GitHub Releases of App Launcher itself for a newer version and installs it.</summary>
 public interface IUpdateService
 {
     /// <summary>Version of the running application (Major.Minor.Build).</summary>

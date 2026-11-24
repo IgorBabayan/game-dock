@@ -54,10 +54,10 @@
 
             <!-- Updates -->
             <StackPanel Grid.Row="1" Margin="24,22,24,8">
-                <TextBlock Style="{StaticResource MonoLabelStyle}" Text="GAME DOCK UPDATES" Margin="0,0,0,14"
+                <TextBlock Style="{StaticResource MonoLabelStyle}" Text="APP LAUNCHER UPDATES" Margin="0,0,0,14"
                            Foreground="{DynamicResource MutedForegroundBrush}" />
 
-                <CheckBox Content="Update Game Dock automatically on start" IsChecked="{Binding AutoUpdate}" />
+                <CheckBox Content="Update App Launcher automatically on start" IsChecked="{Binding AutoUpdate}" />
                 <TextBlock Margin="28,4,0,0" Style="{StaticResource SecondaryTextStyle}"
                            Text="Checks the latest GitHub release, downloads it and restarts into the new version." />
 

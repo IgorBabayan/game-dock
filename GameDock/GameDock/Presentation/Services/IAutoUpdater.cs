@@ -4,7 +4,7 @@ using GameDock.Services.GitHub;
 namespace GameDock.Presentation.Services;
 
 /// <summary>
-/// Checks for, downloads and installs updates of Game Dock itself in the background, reporting progress with toasts.
+/// Checks for, downloads and installs updates of App Launcher itself in the background, reporting progress with toasts.
 /// Must be used from the UI thread.
 /// </summary>
 public interface IAutoUpdater : INotifyPropertyChanged

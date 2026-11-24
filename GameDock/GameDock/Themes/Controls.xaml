@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Shared control styles of Game Dock. Brushes come from Themes/Colors.xaml. -->
+    <!-- Shared control styles of App Launcher. Brushes come from Themes/Colors.xaml. -->
 
     <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
 
