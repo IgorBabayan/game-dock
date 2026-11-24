@@ -54,7 +54,7 @@ public sealed class InnoSetupInstaller(
             // /VERYSILENT              no wizard and no progress window
             // /SUPPRESSMSGBOXES        answer message boxes with their defaults
             // /CLOSEAPPLICATIONS       close the app if it is running while its files are replaced
-            // /NORESTARTAPPLICATIONS   do not start it again afterwards (the user opens it from Game Dock)
+            // /NORESTARTAPPLICATIONS   do not start it again afterwards (the user opens it from App Launcher)
             // /ALLUSERS                keep an existing all-users installation in place (asks for admin rights);
             //                          otherwise the installers default to a per-user install (no UAC prompt)
             var mode = current is { IsAllUsers: true } ? " /ALLUSERS" : string.Empty;

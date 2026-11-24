@@ -1,4 +1,4 @@
-<!-- Game Dock color palette (dark). Keys follow the other apps (GD / LE Save Editor) where they overlap. -->
+<!-- App Launcher color palette (dark). Keys follow the other apps (GD / LE Save Editor) where they overlap. -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 

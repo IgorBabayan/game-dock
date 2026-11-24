@@ -9,7 +9,7 @@
         xmlns:toastViews="clr-namespace:GameDock.Presentation.Views.Toasts"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}"
-        Title="Game Dock"
+        Title="App Launcher"
         Icon="pack://application:,,,/GameDock;component/App.ico"
         Width="1120"
         Height="760"
@@ -332,7 +332,6 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" /> <!-- logo -->
-                        <ColumnDefinition Width="Auto" /> <!-- subtitle -->
                         <ColumnDefinition Width="*" />    <!-- drag area -->
                         <ColumnDefinition Width="Auto" /> <!-- settings -->
                         <ColumnDefinition Width="Auto" /> <!-- min / max / close -->
@@ -347,14 +346,10 @@
                                    FontFamily="{StaticResource MonoFont}"
                                    FontSize="18"
                                    FontWeight="Bold"
-                                   Text="GAME DOCK" />
+                                   Text="APP LAUNCHER" />
                     </StackPanel>
 
-                    <Border Grid.Column="1" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1,0,0,0" Padding="16,0">
-                        <TextBlock Style="{StaticResource MonoLabelStyle}" Text="APP LAUNCHER" />
-                    </Border>
-
-                    <Border Grid.Column="3" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1,0,1,0">
+                    <Border Grid.Column="2" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1,0,1,0">
                         <Grid>
                             <Button Width="48"
                                     Height="47"
@@ -363,7 +358,7 @@
                                     ToolTip="Settings"
                                     AutomationProperties.Name="Settings"
                                     Command="{Binding OpenSettingsCommand}" />
-                            <!-- Dot: a newer Game Dock is available. -->
+                            <!-- Dot: a newer App Launcher is available. -->
                             <Ellipse Width="7" Height="7" Margin="0,12,12,0"
                                      HorizontalAlignment="Right" VerticalAlignment="Top"
                                      IsHitTestVisible="False"
@@ -372,7 +367,7 @@
                         </Grid>
                     </Border>
 
-                    <StackPanel Grid.Column="4" Orientation="Horizontal">
+                    <StackPanel Grid.Column="3" Orientation="Horizontal">
                         <Button Height="47"
                                 Style="{StaticResource CaptionButtonStyle}"
                                 Content="&#xE921;"

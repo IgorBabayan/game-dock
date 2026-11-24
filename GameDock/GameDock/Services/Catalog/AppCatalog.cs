@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace GameDock.Services.Catalog;
 
 /// <summary>
-/// Applications managed by Game Dock. AppIds and installer names must match the Inno Setup scripts
+/// Applications managed by App Launcher. AppIds and installer names must match the Inno Setup scripts
 /// (<c>installer/*.iss</c>) and release workflows of each repository.
 /// </summary>
 public static class AppCatalog
@@ -69,9 +69,9 @@ public static class AppCatalog
         new ManagedApp
         {
             Id = "scroll-keepers",
-            Name = "ScrollKeeper",
+            Name = "Scroll Keeper",
             NameAccent = "Scroll",
-            NameRest = "Keeper",
+            NameRest = " Keeper",
             Tagline = "Elder Scrolls Online addon manager",
             Description = "Browse the ESOUI catalog, install addons with their required libraries, and remove them safely.",
             AccentColor = "#4FC9BE",
@@ -82,6 +82,23 @@ public static class AppCatalog
             ExeName = "ScrollKeeper.exe",
             // ScrollKeeper-Setup-0.1.12.exe
             InstallerAssetPattern = new Regex(@"^ScrollKeeper-Setup.*\.exe$", PatternOptions)
+        },
+        new ManagedApp
+        {
+            Id = "navigator",
+            Name = "Navigator",
+            NameAccent = "Nav",
+            NameRest = "igator",
+            Tagline = "File and folder navigator",
+            Description = "Navigate the files and folders of your OS quickly from a single, keyboard-friendly window.",
+            AccentColor = "#5AA9FF",
+            IconUri = "pack://application:,,,/GameDock;component/Assets/Apps/navigator.png",
+            Owner = Owner,
+            Repository = "navigator",
+            InnoAppId = "{5B0E3C59-7E3A-4A92-9D7C-2F6A1C4B8E11}",
+            ExeName = "Navigator.exe",
+            // Navigator-1.0.3-win-x64-setup.exe
+            InstallerAssetPattern = new Regex(@"^Navigator-.*win-x64-setup\.exe$", PatternOptions)
         }
     ];
 }

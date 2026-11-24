@@ -4,7 +4,7 @@ namespace GameDock.Services.Settings;
 public sealed record AppSettings
 {
     /// <summary>
-    /// When enabled, the latest GitHub release of Game Dock is checked on every start and, if newer,
+    /// When enabled, the latest GitHub release of App Launcher is checked on every start and, if newer,
     /// downloaded, installed and the launcher restarted automatically.
     /// </summary>
     public bool AutoUpdate { get; init; } = true;

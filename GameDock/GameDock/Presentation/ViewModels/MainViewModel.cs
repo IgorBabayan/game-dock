@@ -71,7 +71,7 @@ public sealed partial class MainViewModel : ObservableObject
         _isListView = settings.ViewMode == AppViewMode.List;
 #pragma warning restore MVVMTK0034
 
-        LauncherVersionText = $"GAME DOCK V{VersionHelper.Format(updateService.CurrentVersion)}";
+        LauncherVersionText = $"APP LAUNCHER V{VersionHelper.Format(updateService.CurrentVersion)}";
 
         // Keeps "Checked N min ago" current.
         _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
@@ -153,7 +153,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Called once the window is shown: checks GitHub for the latest releases.</summary>
     public Task InitializeAsync() => RefreshAsync();
 
-    /// <summary>Re-reads the registry (e.g. an app was installed or removed outside of Game Dock).</summary>
+    /// <summary>Re-reads the registry (e.g. an app was installed or removed outside of App Launcher).</summary>
     public void RefreshInstalledState()
     {
         foreach (var app in _apps)

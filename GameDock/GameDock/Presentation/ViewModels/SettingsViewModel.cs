@@ -7,7 +7,7 @@ using GameDock.Services.Updates;
 
 namespace GameDock.Presentation.ViewModels;
 
-/// <summary>Settings dialog: Game Dock's own auto-update.</summary>
+/// <summary>Settings dialog: App Launcher's own auto-update.</summary>
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ISettingsService _settingsService;
@@ -31,7 +31,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Asks the view to close: <c>true</c> = saved, <c>false</c> = cancelled.</summary>
     public event EventHandler<bool>? CloseRequested;
 
-    /// <summary>Check GitHub for a new release of Game Dock on every start and install it automatically.</summary>
+    /// <summary>Check GitHub for a new release of App Launcher on every start and install it automatically.</summary>
     [ObservableProperty]
     private bool _autoUpdate;
 

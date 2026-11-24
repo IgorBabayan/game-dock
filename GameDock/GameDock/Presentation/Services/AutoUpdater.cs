@@ -74,7 +74,7 @@ public sealed partial class AutoUpdater(
             var update = await CheckCoreAsync();
 
             if (update is null)
-                toastService.Show("Game Dock is up to date", NotificationSeverity.Success);
+                toastService.Show("App Launcher is up to date", NotificationSeverity.Success);
             else
                 toastService.Show($"A new version {VersionHelper.Format(update.Version)} is available");
 
@@ -102,7 +102,7 @@ public sealed partial class AutoUpdater(
         using var cancellation = new CancellationTokenSource();
         var version = VersionHelper.Format(update.Version);
 
-        var toast = toastService.ShowPersistent("A new version of Game Dock is downloading");
+        var toast = toastService.ShowPersistent("A new version of App Launcher is downloading");
         toast.Details = $"Version {version}";
         toast.Progress = 0;
         toast.SetAction("Cancel", cancellation.Cancel);
@@ -147,7 +147,7 @@ public sealed partial class AutoUpdater(
         }
     }
 
-    /// <summary>Shows "Game Dock will restart in N seconds" and ticks it down.</summary>
+    /// <summary>Shows "App Launcher will restart in N seconds" and ticks it down.</summary>
     /// <returns><c>false</c> if the user cancelled the restart.</returns>
     private async Task<bool> CountdownAsync(int restartDelaySeconds)
     {
@@ -192,8 +192,8 @@ public sealed partial class AutoUpdater(
 
     private static string RestartMessage(int seconds) =>
         seconds == 1
-            ? "Game Dock will restart in 1 second"
-            : $"Game Dock will restart in {seconds} seconds";
+            ? "App Launcher will restart in 1 second"
+            : $"App Launcher will restart in {seconds} seconds";
 
     private static bool IsCheckError(Exception ex) =>
         ex is HttpRequestException or OperationCanceledException or JsonException or IOException;

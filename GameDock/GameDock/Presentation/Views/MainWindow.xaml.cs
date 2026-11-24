@@ -40,7 +40,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>An app may have been installed or removed outside of Game Dock while the window was in the background.</summary>
+    /// <summary>An app may have been installed or removed outside of App Launcher while the window was in the background.</summary>
     private void OnActivated(object? sender, EventArgs e)
     {
         if (_initialized)

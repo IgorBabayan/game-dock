@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace GameDock.Services.Catalog;
 
 /// <summary>
-/// An application that Game Dock can install, update, remove and open.
+/// An application that App Launcher can install, update, remove and open.
 /// Every app is published as a GitHub Release with an Inno Setup installer attached.
 /// </summary>
 public sealed record ManagedApp
@@ -29,7 +29,7 @@ public sealed record ManagedApp
     /// <summary>Accent color (#RRGGBB) used for the name and the installed version.</summary>
     public required string AccentColor { get; init; }
 
-    /// <summary>Pack URI of the icon embedded in Game Dock.</summary>
+    /// <summary>Pack URI of the icon embedded in App Launcher.</summary>
     public required string IconUri { get; init; }
 
     public required string Owner { get; init; }

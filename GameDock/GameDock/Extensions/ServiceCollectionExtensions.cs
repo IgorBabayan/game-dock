@@ -22,7 +22,7 @@ static class ServiceCollectionExtensions
             services.AddSingleton<ISettingsService, JsonSettingsService>();
             services.AddSingleton<IGitHubReleaseClient, GitHubReleaseClient>();
 
-            // Game Dock's own updates
+            // App Launcher's own updates
             services.AddSingleton<IUpdateService, GitHubUpdateService>();
 
             // Managed apps (Inno Setup installers registered under ...\Uninstall\{AppId}_is1)
