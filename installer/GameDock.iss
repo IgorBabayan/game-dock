@@ -1,4 +1,4 @@
-; Inno Setup script for Game Dock.
+; Inno Setup script for App Launcher.
 ; Built by .github/workflows/release-installer.yml, which passes:
 ;   /DAppVersion=x.y.z  /DSourceDir=<publish folder>  /DOutputDir=<output folder>
 ; Local build example (after `dotnet publish GameDock\GameDock\GameDock.csproj -c Release -r win-x64 --self-contained -o publish`):
@@ -14,7 +14,7 @@
   #define OutputDir "..\dist"
 #endif
 
-#define AppName "Game Dock"
+#define AppName "App Launcher"
 #define AppExeName "GameDock.exe"
 #define AppPublisher "IgorBabayan"
 #define AppUrl "https://github.com/IgorBabayan/game-dock"
