@@ -9,7 +9,7 @@ public interface IGitHubReleaseClient
     /// Returns the release marked "Latest" (drafts and pre-releases are ignored), or <c>null</c> when the
     /// repository has no published release yet.
     /// </summary>
-    /// <param name="installerPattern">Selects the Windows installer among the release assets.</param>
+    /// <param name="installerPattern">Selects the installer for this platform among the release assets.</param>
     /// <exception cref="GitHubRateLimitException">The anonymous rate limit is used up.</exception>
     Task<ReleaseInfo?> GetLatestReleaseAsync(
         string owner,

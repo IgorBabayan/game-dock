@@ -25,9 +25,18 @@ static class ServiceCollectionExtensions
             // App Launcher's own updates
             services.AddSingleton<IUpdateService, GitHubUpdateService>();
 
-            // Managed apps (Inno Setup installers registered under ...\Uninstall\{AppId}_is1)
-            services.AddSingleton<IInstalledAppRegistry, InnoSetupRegistry>();
-            services.AddSingleton<IAppInstaller, InnoSetupInstaller>();
+            if (OperatingSystem.IsWindows())
+            {
+                // Managed apps (Inno Setup installers registered under ...\Uninstall\{AppId}_is1)
+                services.AddSingleton<IInstalledAppRegistry, InnoSetupRegistry>();
+                services.AddSingleton<IAppInstaller, InnoSetupInstaller>();
+            }
+            else
+            {
+                // Linux / macOS: portable release archives unpacked into the user's data folder
+                services.AddSingleton<IInstalledAppRegistry, PortableAppRegistry>();
+                services.AddSingleton<IAppInstaller, PortableAppInstaller>();
+            }
 
             return services;
         }

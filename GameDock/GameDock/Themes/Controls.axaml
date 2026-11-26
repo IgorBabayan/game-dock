@@ -1,0 +1,481 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Shared control themes of App Launcher. Brushes come from Themes/Colors.axaml, icons from Themes/Icons.axaml.
+        Keyed ControlThemes replace the WPF keyed styles: use them with Theme="{StaticResource Name}".
+        Themes keyed by {x:Type ...} replace the Fluent look of that control everywhere.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <!-- Palette must stay first: everything below references its brushes. -->
+        <ResourceInclude Source="avares://GameDock/Themes/Colors.axaml" />
+        <ResourceInclude Source="avares://GameDock/Themes/Icons.axaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Segoe UI on Windows; the bundled Inter font ($Default) on Linux and macOS. -->
+    <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI, $Default</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Menlo, SF Mono, DejaVu Sans Mono, Liberation Mono, Noto Sans Mono, $Default</FontFamily>
+
+    <!-- ===== Fluent text box colors (the search / number boxes keep the Fluent template, recolored) ===== -->
+    <SolidColorBrush x:Key="TextControlForeground" Color="#E8E9EC" />
+    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#E8E9EC" />
+    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#E8E9EC" />
+    <SolidColorBrush x:Key="TextControlBackground" Color="#0F1013" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#0F1013" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#0F1013" />
+    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#34363C" />
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#5A5D66" />
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#7AA7FF" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#6B6E76" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6B6E76" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#6B6E76" />
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">1</Thickness>
+
+    <!-- ===== Text ===== -->
+
+    <ControlTheme x:Key="SecondaryText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+    </ControlTheme>
+
+    <!-- Small upper-case monospace label: versions, section headers, footer. -->
+    <ControlTheme x:Key="MonoLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </ControlTheme>
+
+    <ControlTheme x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource MonoLabel}">
+        <Setter Property="Margin" Value="0,24,0,10" />
+        <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+    </ControlTheme>
+
+    <!-- Outlined chip such as "AVAILABLE TO INSTALL". -->
+    <ControlTheme x:Key="Chip" TargetType="Border">
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource ChipForegroundBrush}" />
+        <Setter Property="Padding" Value="6,2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </ControlTheme>
+
+    <!-- ===== Buttons ===== -->
+
+    <!-- Outlined monospace button ("OPEN", "INSTALL", "CANCEL"): hover darkens the background and lightens the border. -->
+    <ControlTheme x:Key="OutlineButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="0" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border Margin="-2" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" />
+            </FocusAdornerTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="False" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource ButtonHoverBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlHoverBorderBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource ButtonPressedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Filled light button for the action that matters most ("UPDATE", "SAVE"): keeps its colors and only fades on hover. -->
+    <ControlTheme x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+        <Setter Property="Foreground" Value="{StaticResource PrimaryButtonForegroundBrush}" />
+        <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+
+        <!-- Undo the outline hover colors, fade instead. -->
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+            <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Destructive confirm button ("REMOVE"). -->
+    <ControlTheme x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="Foreground" Value="White" />
+        <Setter Property="Background" Value="{StaticResource CloseButtonHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource CloseButtonHoverBrush}" />
+    </ControlTheme>
+
+    <!--
+        Main action button of an app: outlined OPEN / INSTALL, or a filled UPDATE when the "update" class is set
+        (Classes.update="{Binding IsUpdateAvailable}").
+    -->
+    <ControlTheme x:Key="AppPrimaryButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+        <Style Selector="^.update">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryButtonForegroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+        </Style>
+        <Style Selector="^.update:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="Opacity" Value="0.88" />
+        </Style>
+        <Style Selector="^.update:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Square outlined icon button (refresh, "…"). Content is a PathIcon. -->
+    <ControlTheme x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="FontWeight" Value="Normal" />
+    </ControlTheme>
+
+    <!-- Borderless small icon button (toast close). -->
+    <ControlTheme x:Key="SubtleIconButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonHoverBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Link-style text button ("GITHUB ↗", toast actions). -->
+    <ControlTheme x:Key="TextLinkButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border Margin="-2" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" />
+            </FocusAdornerTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      VerticalAlignment="Center"
+                                      RecognizesAccessKey="False" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Grid / list switch: a pair of radio buttons that look like a segmented control. -->
+    <ControlTheme x:Key="SegmentRadioButton" TargetType="RadioButton">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border Margin="-2" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" />
+            </FocusAdornerTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource ButtonHoverBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Foreground" Value="{StaticResource PrimaryButtonForegroundBrush}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== Inputs ===== -->
+
+    <!-- Text boxes keep the Fluent template (caret, selection, IME): see the "TextBox.search" style in App.axaml. -->
+
+    <ControlTheme x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="10,7" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Name="PART_ContentPresenter"
+                                  Background="{TemplateBinding Background}"
+                                  Padding="{TemplateBinding Padding}"
+                                  Content="{TemplateBinding Content}"
+                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="Center" />
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource ListItemHoverBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource SelectionBackgroundBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="DarkComboBox" TargetType="ComboBox">
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Padding" Value="12,0,30,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="MaxDropDownHeight" Value="300" />
+        <Setter Property="ItemContainerTheme" Value="{StaticResource DarkComboBoxItem}" />
+        <Setter Property="FocusAdorner">
+            <FocusAdornerTemplate>
+                <Border Margin="-2" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" />
+            </FocusAdornerTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Panel>
+                    <Border Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" />
+                    <ContentControl Margin="{TemplateBinding Padding}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False"
+                                    Content="{TemplateBinding SelectionBoxItem}"
+                                    ContentTemplate="{TemplateBinding ItemTemplate}" />
+                    <PathIcon Width="10"
+                              Height="10"
+                              Margin="0,0,12,0"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              IsHitTestVisible="False"
+                              Data="{StaticResource Icon.ChevronDown}" />
+                    <Popup Name="PART_Popup"
+                           WindowManagerAddShadowHint="False"
+                           IsOpen="{TemplateBinding IsDropDownOpen, Mode=TwoWay}"
+                           MinWidth="{Binding $parent[ComboBox].Bounds.Width}"
+                           MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                           Placement="Bottom"
+                           IsLightDismissEnabled="True"
+                           InheritsTransform="True">
+                        <Border Margin="0,2,0,0"
+                                Background="{StaticResource CardBackgroundBrush}"
+                                BorderBrush="{StaticResource ControlBorderBrush}"
+                                BorderThickness="1">
+                            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{StaticResource ControlHoverBorderBrush}" />
+        </Style>
+        <Style Selector="^:dropdownopen /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type CheckBox}" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Orientation="Horizontal" Background="{TemplateBinding Background}">
+                    <Border Name="Box"
+                            Width="18"
+                            Height="18"
+                            VerticalAlignment="Center"
+                            Background="{StaticResource ControlBackgroundBrush}"
+                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            BorderThickness="1">
+                        <PathIcon Name="Mark"
+                                  Width="11"
+                                  Height="11"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  Data="{StaticResource Icon.Check}"
+                                  Foreground="{StaticResource PrimaryButtonForegroundBrush}"
+                                  IsVisible="False" />
+                    </Border>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Margin="10,0,0,0"
+                                      VerticalAlignment="Center"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:checked /template/ Border#Box">
+            <Setter Property="Background" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:checked /template/ PathIcon#Mark">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Box">
+            <Setter Property="BorderBrush" Value="{StaticResource ControlHoverBorderBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- ===== Context menu ===== -->
+
+    <ControlTheme x:Key="{x:Type ContextMenu}" TargetType="ContextMenu">
+        <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Padding" Value="0,4" />
+        <Setter Property="MinWidth" Value="200" />
+        <Setter Property="WindowManagerAddShadowHint" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Padding="{TemplateBinding Padding}">
+                    <ItemsPresenter Name="PART_ItemsPresenter"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}"
+                                    KeyboardNavigation.TabNavigation="Continue" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- Menu item: icon column + header. Icon is a PathIcon set through MenuItem.Icon. -->
+    <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}" Padding="12,7,20,7">
+                    <Grid ColumnDefinitions="26,*">
+                        <ContentPresenter Name="PART_IconPresenter"
+                                          Grid.Column="0"
+                                          Width="13"
+                                          Height="13"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Icon}" />
+                        <ContentPresenter Name="PART_HeaderPresenter"
+                                          Grid.Column="1"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Header}"
+                                          ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                          RecognizesAccessKey="False" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource ListItemHoverBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:selected /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource ListItemHoverBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
+        <Setter Property="Background" Value="{StaticResource ControlBorderBrush}" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="0,4" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" />
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+</ResourceDictionary>

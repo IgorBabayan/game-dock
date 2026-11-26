@@ -1,0 +1,72 @@
+﻿<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="GameDock.App"
+             Name="App Launcher"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!--
+                    Controls.axaml merges the palette (Colors.axaml) and the icons (Icons.axaml) itself, so its
+                    StaticResource references resolve while it loads; WindowChrome.axaml does the same.
+                -->
+                <ResourceInclude Source="avares://GameDock/Themes/Controls.axaml" />
+                <ResourceInclude Source="avares://GameDock/Themes/WindowChrome.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <!-- Base templates for the controls that are not re-templated in Themes/Controls.axaml. -->
+        <FluentTheme />
+
+        <!-- ===== Light-weight global setters (no templates) ===== -->
+
+        <Style Selector="ToolTip">
+            <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+        </Style>
+
+        <!-- Search / number box: Fluent text box recolored to the palette (Watermark is the placeholder). -->
+        <Style Selector="TextBox.search">
+            <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource WindowForegroundBrush}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.search:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource ControlHoverBorderBrush}" />
+        </Style>
+        <Style Selector="TextBox.search:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{StaticResource ControlBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox.search:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+
+        <Style Selector="ProgressBar">
+            <Setter Property="Height" Value="3" />
+            <Setter Property="MinHeight" Value="3" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryButtonBackgroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource ControlBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </Application.Styles>
+</Application>

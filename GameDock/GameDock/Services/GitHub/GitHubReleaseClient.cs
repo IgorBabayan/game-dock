@@ -1,12 +1,12 @@
+using System.Buffers;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace GameDock.Services.GitHub;
@@ -14,26 +14,55 @@ namespace GameDock.Services.GitHub;
 /// <summary>Anonymous client for <c>api.github.com/repos/{owner}/{repo}/releases/latest</c>.</summary>
 public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-    };
-
     /// <summary>Pauses between download attempts; one more attempt than there are delays.</summary>
     private static readonly TimeSpan[] DownloadRetryDelays =
         [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)];
 
-    private readonly HttpClient _http;
+    /// <summary>
+    /// Download progress is reported at most this often. Network reads return every few KB, and every report is
+    /// marshalled to the UI thread and re-formats texts: unthrottled that is thousands of UI updates per installer.
+    /// </summary>
+    private const long ProgressIntervalMs = 100;
+
+    private const int BufferSize = 81920;
+
+    /// <summary>API calls: small JSON documents, compressed on the wire.</summary>
+    private readonly HttpClient _api;
+
+    /// <summary>
+    /// Asset downloads: separate client without automatic decompression, so HTTP range requests (resume) always
+    /// address the raw bytes of the file.
+    /// </summary>
+    private readonly HttpClient _downloads;
 
     public GitHubReleaseClient()
     {
         var version = Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
+        // GitHub rejects API requests without a User-Agent.
+        var userAgent = new ProductInfoHeaderValue("GameDock", VersionHelper.Normalize(version).ToString());
 
         // Timeouts are controlled per call with cancellation tokens (downloads may take a while).
-        _http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        // GitHub rejects API requests without a User-Agent.
-        _http.DefaultRequestHeaders.UserAgent.Add(
-            new ProductInfoHeaderValue("GameDock", VersionHelper.Normalize(version).ToString()));
+        _api = new HttpClient(new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            ConnectTimeout = TimeSpan.FromSeconds(15)
+        })
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+        _api.DefaultRequestHeaders.UserAgent.Add(userAgent);
+
+        _downloads = new HttpClient(new SocketsHttpHandler
+        {
+            AutomaticDecompression = DecompressionMethods.None,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+            ConnectTimeout = TimeSpan.FromSeconds(15)
+        })
+        {
+            Timeout = Timeout.InfiniteTimeSpan
+        };
+        _downloads.DefaultRequestHeaders.UserAgent.Add(userAgent);
     }
 
     public async Task<ReleaseInfo?> GetLatestReleaseAsync(
@@ -51,7 +80,10 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         request.Headers.Add("X-GitHub-Api-Version", "2022-11-28");
 
-        using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        // Stream the body straight into the deserializer instead of buffering it first.
+        using var response = await _api
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
 
         // No published release yet.
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -63,7 +95,9 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         response.EnsureSuccessStatusCode();
 
         await using var json = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var release = await JsonSerializer.DeserializeAsync<ReleaseDto>(json, SerializerOptions, cancellationToken)
+        // Source-generated metadata: no reflection-based serializer warm-up on the first check.
+        var release = await JsonSerializer
+            .DeserializeAsync(json, GitHubJsonContext.Default.ReleaseDto, cancellationToken)
             .ConfigureAwait(false);
 
         if (release is null || release.Draft || release.Prerelease ||
@@ -96,13 +130,16 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         // Never resume from a leftover of an earlier, unrelated download.
         TryDelete(partialPath);
 
+        // SHA-256 is computed while the bytes arrive, so the file is not read back from disk to be verified.
+        using var hash = asset.Sha256 is null ? null : new Sha256Tracker();
+
         try
         {
             for (var attempt = 1; ; attempt++)
             {
                 try
                 {
-                    await DownloadToFileAsync(asset, partialPath, progress, cancellationToken).ConfigureAwait(false);
+                    await DownloadToFileAsync(asset, partialPath, hash, progress, cancellationToken).ConfigureAwait(false);
                     break;
                 }
                 catch (Exception ex) when (attempt < DownloadRetryDelays.Length + 1 &&
@@ -115,7 +152,7 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
                 }
             }
 
-            await VerifyAsync(partialPath, asset, cancellationToken).ConfigureAwait(false);
+            Verify(partialPath, asset, hash);
 
             File.Move(partialPath, targetPath, overwrite: true);
             return targetPath;
@@ -134,6 +171,7 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
     private async Task DownloadToFileAsync(
         ReleaseAsset asset,
         string path,
+        Sha256Tracker? hash,
         IProgress<DownloadProgress>? progress,
         CancellationToken cancellationToken)
     {
@@ -143,14 +181,18 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         if (existing > 0)
             request.Headers.Range = new RangeHeaderValue(existing, null);
 
-        using var response = await _http
+        using var response = await _downloads
             .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
 
         // The previous attempt already received the whole file.
         if (existing > 0 && existing == asset.Size &&
             response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
+        {
+            if (hash is not null && hash.Length != existing)
+                await hash.RebuildAsync(path, cancellationToken).ConfigureAwait(false);
             return;
+        }
 
         EnsureDownloadSucceeded(response);
 
@@ -161,19 +203,49 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
             ? asset.Size
             : response.Content.Headers.ContentLength is { } length ? length + received : 0;
 
+        if (hash is not null)
+        {
+            if (!resume)
+                hash.Reset();
+            else if (hash.Length != received)
+                // Rare: the bytes on disk and the running hash got out of step (e.g. a write failed halfway).
+                await hash.RebuildAsync(path, cancellationToken).ConfigureAwait(false);
+        }
+
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         await using var target = new FileStream(
-            path, resume ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+            path, resume ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, useAsync: true);
 
-        var buffer = new byte[81920];
-        int read;
-        progress?.Report(new DownloadProgress(received, total));
-
-        while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+        var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+        try
         {
-            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-            received += read;
+            var lastReport = Environment.TickCount64;
             progress?.Report(new DownloadProgress(received, total));
+
+            int read;
+            while ((read = await source.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                hash?.Append(buffer.AsSpan(0, read));
+                received += read;
+
+                if (progress is not null)
+                {
+                    var now = Environment.TickCount64;
+                    if (now - lastReport >= ProgressIntervalMs)
+                    {
+                        lastReport = now;
+                        progress.Report(new DownloadProgress(received, total));
+                    }
+                }
+            }
+
+            // Always end on the exact final value.
+            progress?.Report(new DownloadProgress(received, total));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
         }
     }
 
@@ -207,7 +279,11 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         };
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _api.Dispose();
+        _downloads.Dispose();
+    }
 
     private static bool IsRateLimited(HttpResponseMessage response, out DateTimeOffset? resetsAt)
     {
@@ -226,19 +302,17 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         return true;
     }
 
-    private static async Task VerifyAsync(string path, ReleaseAsset asset, CancellationToken cancellationToken)
+    private static void Verify(string path, ReleaseAsset asset, Sha256Tracker? hash)
     {
         var length = new FileInfo(path).Length;
         if (asset.Size > 0 && length != asset.Size)
             throw new InvalidDataException($"Downloaded file has {length} bytes, expected {asset.Size}.");
 
-        if (asset.Sha256 is null)
+        if (asset.Sha256 is null || hash is null)
             return;
 
-        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true);
-        var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
-
-        if (!string.Equals(hash, asset.Sha256, StringComparison.OrdinalIgnoreCase))
+        if (hash.Length != length ||
+            !string.Equals(hash.GetHashAndReset(), asset.Sha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("Downloaded file failed the SHA-256 check.");
     }
 
@@ -272,19 +346,75 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
         }
     }
 
-    // ===== GitHub API payload (only the fields we use) =====
+    /// <summary>Running SHA-256 of the bytes written to the partial file.</summary>
+    private sealed class Sha256Tracker : IDisposable
+    {
+        private IncrementalHash _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
-    private sealed record ReleaseDto(
-        string? TagName,
-        string? HtmlUrl,
-        bool Draft,
-        bool Prerelease,
-        DateTimeOffset? PublishedAt,
-        IReadOnlyList<AssetDto>? Assets);
+        /// <summary>Number of bytes hashed so far.</summary>
+        public long Length { get; private set; }
 
-    private sealed record AssetDto(
-        string? Name,
-        string? BrowserDownloadUrl,
-        long Size,
-        string? Digest);
+        public void Append(ReadOnlySpan<byte> data)
+        {
+            _hash.AppendData(data);
+            Length += data.Length;
+        }
+
+        public void Reset()
+        {
+            _hash.Dispose();
+            _hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            Length = 0;
+        }
+
+        /// <summary>Re-hashes what is on disk (only needed when a resumed download lost track).</summary>
+        public async Task RebuildAsync(string path, CancellationToken cancellationToken)
+        {
+            Reset();
+
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, useAsync: true);
+            var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+            try
+            {
+                int read;
+                while ((read = await stream.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+                    Append(buffer.AsSpan(0, read));
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+        }
+
+        /// <summary>Lower-case hex SHA-256 of everything appended.</summary>
+        public string GetHashAndReset()
+        {
+            var hex = Convert.ToHexStringLower(_hash.GetHashAndReset());
+            Length = 0;
+            return hex;
+        }
+
+        public void Dispose() => _hash.Dispose();
+    }
 }
+
+// ===== GitHub API payload (only the fields we use) =====
+
+internal sealed record ReleaseDto(
+    string? TagName,
+    string? HtmlUrl,
+    bool Draft,
+    bool Prerelease,
+    DateTimeOffset? PublishedAt,
+    IReadOnlyList<AssetDto>? Assets);
+
+internal sealed record AssetDto(
+    string? Name,
+    string? BrowserDownloadUrl,
+    long Size,
+    string? Digest);
+
+/// <summary>Compile-time JSON metadata for the GitHub payload (snake_case properties).</summary>
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower)]
+[JsonSerializable(typeof(ReleaseDto))]
+internal sealed partial class GitHubJsonContext : JsonSerializerContext;

@@ -5,8 +5,8 @@ public interface IDialogService
 {
     /// <summary>Shows a Yes/No style confirmation.</summary>
     /// <returns><c>true</c> if the user pressed the confirm button.</returns>
-    bool Confirm(string title, string message, string confirmText, bool isDestructive = false);
+    Task<bool> ConfirmAsync(string title, string message, string confirmText, bool isDestructive = false);
 
-    /// <summary>Opens the Settings dialog.</summary>
-    void ShowSettings();
+    /// <summary>Opens the Settings dialog and completes when it is closed.</summary>
+    Task ShowSettingsAsync();
 }

@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using GameDock.Services.Notifications;
 
 namespace GameDock.Presentation.Services.Toasts;

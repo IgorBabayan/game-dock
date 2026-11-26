@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using GameDock.Presentation.Services;
 using GameDock.Presentation.Services.Toasts;
 using GameDock.Services.Catalog;
@@ -31,6 +31,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     private DateTimeOffset? _lastChecked;
 
+    /// <summary>
+    /// &gt; 0 while many cards change at once (refresh, activation): their InstalledStateChanged events are folded into
+    /// a single <see cref="ApplyView"/> at the end instead of one rebuild per card.
+    /// </summary>
+    private int _viewUpdateSuspensions;
+
+    /// <summary>A card moved between the sections while view updates were suspended.</summary>
+    private bool _isViewDirty;
+
     public MainViewModel(
         IGitHubReleaseClient releaseClient,
         IInstalledAppRegistry registry,
@@ -53,7 +62,13 @@ public sealed partial class MainViewModel : ObservableObject
 
         foreach (var app in _apps)
         {
-            app.InstalledStateChanged += (_, _) => ApplyView();
+            app.InstalledStateChanged += (_, _) =>
+            {
+                if (_viewUpdateSuspensions == 0)
+                    ApplyView();
+                else
+                    _isViewDirty = true;
+            };
             app.PropertyChanged += OnAppPropertyChanged;
         }
 
@@ -156,10 +171,21 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Re-reads the registry (e.g. an app was installed or removed outside of App Launcher).</summary>
     public void RefreshInstalledState()
     {
-        foreach (var app in _apps)
-            app.RefreshInstalled();
+        _isViewDirty = false;
+        _viewUpdateSuspensions++;
+        try
+        {
+            foreach (var app in _apps)
+                app.RefreshInstalled();
+        }
+        finally
+        {
+            _viewUpdateSuspensions--;
+        }
 
-        ApplyView();
+        // Usually nothing changed (this runs on window activation): then there is nothing to rebuild.
+        if (_isViewDirty || InstalledApps.Count + AvailableApps.Count == 0)
+            ApplyView();
     }
 
     [RelayCommand(CanExecute = nameof(CanRefresh))]
@@ -171,11 +197,19 @@ public sealed partial class MainViewModel : ObservableObject
             using var timeout = new CancellationTokenSource(ReleaseCheckTimeout);
             var results = await Task.WhenAll(_apps.Select(app => FetchAsync(app.App, timeout.Token)));
 
-            for (var i = 0; i < _apps.Count; i++)
-                _apps[i].SetRelease(results[i].Release, results[i].Error);
+            _viewUpdateSuspensions++;
+            try
+            {
+                for (var i = 0; i < _apps.Count; i++)
+                    _apps[i].SetRelease(results[i].Release, results[i].Error);
 
-            foreach (var app in _apps)
-                app.RefreshInstalled();
+                foreach (var app in _apps)
+                    app.RefreshInstalled();
+            }
+            finally
+            {
+                _viewUpdateSuspensions--;
+            }
 
             _lastChecked = DateTimeOffset.Now;
 
@@ -207,7 +241,7 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void OpenSettings() => _dialogs.ShowSettings();
+    private Task OpenSettingsAsync() => _dialogs.ShowSettingsAsync();
 
     [RelayCommand]
     private void ShowGrid() => IsListView = false;
@@ -285,15 +319,32 @@ public sealed partial class MainViewModel : ObservableObject
         OnUpdatesChanged();
     }
 
-    /// <summary>Replaces the items only when they differ, so cards are not re-created needlessly.</summary>
+    /// <summary>
+    /// Brings <paramref name="target"/> to the order of <paramref name="items"/> with the fewest changes: cards that
+    /// stay visible are moved, not removed and re-added, so their (expensive) visuals are kept instead of re-created.
+    /// </summary>
     private static void Sync(ObservableCollection<AppCardViewModel> target, IReadOnlyList<AppCardViewModel> items)
     {
-        if (target.SequenceEqual(items))
-            return;
+        // Drop cards that are no longer visible here.
+        for (var i = target.Count - 1; i >= 0; i--)
+        {
+            if (!items.Contains(target[i]))
+                target.RemoveAt(i);
+        }
 
-        target.Clear();
-        foreach (var item in items)
-            target.Add(item);
+        // Insert new cards and move the others into place.
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (i < target.Count && ReferenceEquals(target[i], item))
+                continue;
+
+            var current = target.IndexOf(item);
+            if (current < 0)
+                target.Insert(i, item);
+            else
+                target.Move(current, i);
+        }
     }
 
     private void OnAppPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -1,10 +1,13 @@
-name: Release - Windows installer
+name: Release - Windows, Linux and macOS
 
 # Runs every time a pull request is MERGED into the `release` branch.
-# Builds a self-contained win-x64 publish, packs it with Inno Setup and
-# publishes a GitHub Release (shown in the "Releases" panel of the repo page)
-# with the installer attached. The newest run is marked as "Latest", which is
-# also what App Launcher's auto-updater reads via /releases/latest.
+# Builds, in parallel:
+#   - Windows: a self-contained win-x64 publish packed with Inno Setup   -> GameDock-Setup-<version>.exe
+#   - Linux:   self-contained linux-x64 / linux-arm64 folders            -> GameDock-<version>-linux-<arch>.tar.gz
+#   - macOS:   self-contained osx-arm64 / osx-x64 "App Launcher.app"     -> GameDock-<version>-osx-<arch>.zip
+# and publishes one GitHub Release (shown in the "Releases" panel of the repo page) with all of them attached.
+# The newest run is marked as "Latest", which is also what App Launcher's updater reads via /releases/latest
+# (the installer on Windows, the archive for the machine's runtime on Linux / macOS).
 on:
   pull_request:
     types: [closed]
@@ -20,14 +23,20 @@ concurrency:
 
 env:
   PROJECT: GameDock/GameDock/GameDock.csproj
-  RUNTIME: win-x64
   CONFIGURATION: Release
+  DOTNET_VERSION: 10.0.x
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  build-installer:
+  version:
     # Skip PRs that were closed without merging.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
 
     steps:
       - name: Checkout merged commit
@@ -35,35 +44,48 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
+      - name: Compute version
+        id: version
+        shell: bash
+        run: |
+          # Major.Minor from <VersionPrefix>, the run number as the patch part.
+          base=$(grep -oPm1 '(?<=<VersionPrefix>)[^<]+' "$PROJECT" || true)
+          base=${base:-0.1}
+          IFS=. read -r major minor _ <<< "$base"
+          version="$major.${minor:-0}.$GITHUB_RUN_NUMBER"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version"    >> "$GITHUB_OUTPUT"
+          echo "commit=${{ github.event.pull_request.merge_commit_sha || github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      RUNTIME: win-x64
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
-
-      - name: Compute version
-        id: version
-        shell: pwsh
-        run: |
-          [xml]$proj = Get-Content $env:PROJECT
-          $base = ($proj.Project.PropertyGroup | ForEach-Object { $_.VersionPrefix } | Where-Object { $_ } | Select-Object -First 1)
-          if (-not $base) { $base = '0.1' }
-          $parts = $base.Split('.')
-          $version = "$($parts[0]).$($parts[1]).$env:GITHUB_RUN_NUMBER"
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "tag=v$version"    >> $env:GITHUB_OUTPUT
-          Write-Host "Version: $version"
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
         run: dotnet restore ${{ env.PROJECT }} -r ${{ env.RUNTIME }}
 
-      - name: Publish (self-contained)
+      - name: Publish (self-contained, ReadyToRun)
         run: >
           dotnet publish ${{ env.PROJECT }}
           -c ${{ env.CONFIGURATION }}
           -r ${{ env.RUNTIME }}
           --self-contained true
           --no-restore
-          -p:Version=${{ steps.version.outputs.version }}
+          -p:Version=${{ needs.version.outputs.version }}
           -p:DebugType=none
           -o publish
 
@@ -81,7 +103,7 @@ jobs:
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           & $iscc `
-            "/DAppVersion=${{ steps.version.outputs.version }}" `
+            "/DAppVersion=${{ needs.version.outputs.version }}" `
             "/DSourceDir=$env:GITHUB_WORKSPACE\publish" `
             "/DOutputDir=$env:GITHUB_WORKSPACE\dist" `
             installer\GameDock.iss
@@ -91,20 +113,99 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GameDock-Setup-${{ steps.version.outputs.version }}
+          name: GameDock-${{ needs.version.outputs.version }}-windows
           path: dist/*.exe
           if-no-files-found: error
+
+  build-linux:
+    needs: version
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64]
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build package
+        run: bash packaging/build-linux.sh ${{ matrix.rid }} ${{ needs.version.outputs.version }} dist
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameDock-${{ needs.version.outputs.version }}-${{ matrix.rid }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build-macos:
+    needs: version
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [osx-arm64, osx-x64]
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Build app bundle
+        run: bash packaging/build-macos.sh ${{ matrix.rid }} ${{ needs.version.outputs.version }} dist
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameDock-${{ needs.version.outputs.version }}-${{ matrix.rid }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    needs: [version, build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: GameDock-${{ needs.version.outputs.version }}-*
+          merge-multiple: true
+
+      - name: List files
+        run: ls -la dist
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: App Launcher ${{ steps.version.outputs.version }}
-          target_commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          tag_name: ${{ needs.version.outputs.tag }}
+          name: App Launcher ${{ needs.version.outputs.version }}
+          target_commitish: ${{ needs.version.outputs.commit }}
           body: |
-            Windows installer built from ${{ github.event.pull_request.html_url || github.sha }}
+            Built from ${{ github.event.pull_request.html_url || github.sha }}
             ${{ github.event.pull_request.title }}
+
+            | Platform | Download |
+            |---|---|
+            | Windows (x64) | `GameDock-Setup-${{ needs.version.outputs.version }}.exe` |
+            | Linux (x64 / arm64) | `GameDock-${{ needs.version.outputs.version }}-linux-<arch>.tar.gz`, unpack and run `GameDock/install.sh` |
+            | macOS (Apple silicon / Intel) | `GameDock-${{ needs.version.outputs.version }}-osx-<arch>.zip`, move `App Launcher.app` to Applications |
           generate_release_notes: true
           make_latest: true
-          files: dist/*.exe
+          files: dist/*
           fail_on_unmatched_files: true

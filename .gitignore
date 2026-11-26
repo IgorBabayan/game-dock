@@ -23,6 +23,10 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# Local publish / packaging output (packaging/*.sh, installer/GameDock.iss)
+publish/
+dist/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

@@ -1,0 +1,114 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:GameDock.Presentation.ViewModels"
+        xmlns:toastViews="using:GameDock.Presentation.Views.Toasts"
+        mc:Ignorable="d"
+        x:Class="GameDock.Presentation.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Settings"
+        Width="520"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource UiFont}"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource WindowForegroundBrush}">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+    </Window.KeyBindings>
+
+    <Border BorderBrush="{StaticResource WindowBorderBrush}" BorderThickness="1">
+        <Grid RowDefinitions="40,Auto,Auto">
+
+            <!-- Title bar -->
+            <Border x:Name="TitleBar"
+                    Grid.Row="0"
+                    Background="{StaticResource TitleBarBackgroundBrush}"
+                    BorderBrush="{StaticResource WindowBorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <Button x:Name="CloseButton"
+                            DockPanel.Dock="Right"
+                            Height="39"
+                            Theme="{StaticResource CloseCaptionButton}"
+                            ToolTip.Tip="Close"
+                            Command="{Binding CancelCommand}">
+                        <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Close}" />
+                    </Button>
+                    <TextBlock x:Name="TitleText"
+                               Margin="18,0,0,0"
+                               Theme="{StaticResource MonoLabel}"
+                               Text="SETTINGS"
+                               Foreground="{StaticResource WindowForegroundBrush}" />
+                </DockPanel>
+            </Border>
+
+            <!-- Updates -->
+            <StackPanel Grid.Row="1" Margin="24,22,24,8">
+                <TextBlock Theme="{StaticResource MonoLabel}" Text="APP LAUNCHER UPDATES" Margin="0,0,0,14"
+                           Foreground="{StaticResource MutedForegroundBrush}" />
+
+                <CheckBox Content="Update App Launcher automatically on start" IsChecked="{Binding AutoUpdate}" />
+                <TextBlock Margin="28,4,0,0" Theme="{StaticResource SecondaryText}"
+                           Text="Checks the latest GitHub release, downloads it and restarts into the new version." />
+
+                <DockPanel Margin="0,18,0,0">
+                    <TextBox DockPanel.Dock="Right"
+                             Width="80"
+                             Classes="search"
+                             Padding="8,0"
+                             TextAlignment="Right"
+                             AutomationProperties.Name="Seconds before restart"
+                             Text="{Binding RestartDelayText}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="13" Text="Seconds before restart" />
+                        <TextBlock Theme="{StaticResource SecondaryText}">
+                            <Run Text="Countdown after an update was downloaded (0 –" /><Run Text="{Binding MaxRestartDelaySeconds, Mode=OneWay}" /><Run Text=")." />
+                        </TextBlock>
+                    </StackPanel>
+                </DockPanel>
+                <TextBlock Margin="0,6,0,0"
+                           HorizontalAlignment="Right"
+                           FontSize="12"
+                           Foreground="{StaticResource ErrorForegroundBrush}"
+                           IsVisible="{Binding IsRestartDelayInvalid}">
+                    <Run Text="Enter a number from 0 to " /><Run Text="{Binding MaxRestartDelaySeconds, Mode=OneWay}" /><Run Text="." />
+                </TextBlock>
+
+                <Border Margin="0,20,0,0" Padding="16" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1"
+                        Background="{StaticResource CardBackgroundBrush}">
+                    <StackPanel>
+                        <TextBlock Theme="{StaticResource MonoLabel}" Text="{Binding CurrentVersionText}"
+                                   Foreground="{StaticResource WindowForegroundBrush}" />
+                        <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                            <Button Theme="{StaticResource OutlineButton}" Content="CHECK FOR UPDATES"
+                                    Command="{Binding CheckForUpdatesCommand}" />
+                            <Button Margin="8,0,0,0" Theme="{StaticResource PrimaryButton}" Content="DOWNLOAD AND UPDATE"
+                                    Command="{Binding DownloadAndUpdateCommand}"
+                                    IsVisible="{Binding HasAvailableUpdate}" />
+                        </StackPanel>
+                        <TextBlock Margin="0,10,0,0" FontSize="12" Text="{Binding AvailableUpdateText}"
+                                   Foreground="{StaticResource WarningForegroundBrush}"
+                                   IsVisible="{Binding HasAvailableUpdate}" />
+                        <TextBlock Margin="0,10,0,0" Theme="{StaticResource SecondaryText}"
+                                   Text="{Binding NotInstalledText}"
+                                   IsVisible="{Binding IsNotInstalled}" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="2" Margin="24,16,24,24" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Width="110" Theme="{StaticResource OutlineButton}" Content="CANCEL" Command="{Binding CancelCommand}" />
+                <Button Width="110" Margin="8,0,0,0" Theme="{StaticResource PrimaryButton}" Content="SAVE"
+                        IsDefault="True" Command="{Binding SaveCommand}" />
+            </StackPanel>
+
+            <toastViews:ToastHost Grid.Row="0" Grid.RowSpan="3" />
+        </Grid>
+    </Border>
+</Window>

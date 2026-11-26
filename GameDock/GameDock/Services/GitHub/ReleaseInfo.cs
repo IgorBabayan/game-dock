@@ -7,7 +7,9 @@ namespace GameDock.Services.GitHub;
 /// <param name="TagName">Raw tag name.</param>
 /// <param name="PublishedAt">When the release was published.</param>
 /// <param name="PageUrl">Web page of the release.</param>
-/// <param name="Installer">Windows installer asset, or <c>null</c> if the release has none.</param>
+/// <param name="Installer">
+/// Installer for this platform (Windows installer, or Linux / macOS archive), or <c>null</c> if the release has none.
+/// </param>
 public sealed record ReleaseInfo(
     Version Version,
     string TagName,

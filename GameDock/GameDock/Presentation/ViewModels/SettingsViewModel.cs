@@ -57,6 +57,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>True for development builds / unpacked copies, which are never updated.</summary>
     public bool IsNotInstalled { get; }
 
+    /// <summary>Why this copy cannot update itself (shown when <see cref="IsNotInstalled"/>).</summary>
+    public string NotInstalledText { get; } = OperatingSystem.IsWindows()
+        ? "This copy was not installed with the installer, so it cannot update itself."
+        : "Automatic installation of updates is available on Windows. On this system App Launcher tells you about " +
+          "new versions; download them from GitHub Releases.";
+
     public bool IsBusy => _autoUpdater.IsBusy;
 
     [RelayCommand(CanExecute = nameof(CanCheckForUpdates))]

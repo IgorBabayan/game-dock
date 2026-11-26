@@ -1,22 +1,16 @@
-using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using GameDock.Services.Platform;
 
 namespace GameDock.Services.Settings;
 
-/// <summary>Stores settings as JSON in <c>%APPDATA%\GameDock\settings.json</c>.</summary>
+/// <summary>
+/// Stores settings as JSON in <c>settings.json</c> under <see cref="PlatformInfo.SettingsFolder"/>
+/// (<c>%APPDATA%\GameDock</c> on Windows, as before).
+/// </summary>
 public sealed class JsonSettingsService : ISettingsService
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() }
-    };
-
-    private readonly string _filePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "GameDock",
-        "settings.json");
+    private readonly string _filePath = Path.Combine(PlatformInfo.SettingsFolder, "settings.json");
 
     public JsonSettingsService()
     {
@@ -35,7 +29,7 @@ public sealed class JsonSettingsService : ISettingsService
 
         // Write to a temp file first so a crash mid-write never leaves a corrupted settings file.
         var tempPath = _filePath + ".tmp";
-        File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, SerializerOptions));
+        File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings));
         File.Move(tempPath, _filePath, overwrite: true);
 
         Current = settings;
@@ -49,7 +43,7 @@ public sealed class JsonSettingsService : ISettingsService
             if (!File.Exists(_filePath))
                 return new AppSettings();
 
-            return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_filePath), SerializerOptions)
+            return JsonSerializer.Deserialize(File.ReadAllText(_filePath), SettingsJsonContext.Default.AppSettings)
                    ?? new AppSettings();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
@@ -59,3 +53,11 @@ public sealed class JsonSettingsService : ISettingsService
         }
     }
 }
+
+/// <summary>
+/// Compile-time JSON metadata for the settings file: no reflection-based serializer warm-up on startup.
+/// Same format as before (indented, enums as names), so existing settings files keep working.
+/// </summary>
+[JsonSourceGenerationOptions(WriteIndented = true, UseStringEnumConverter = true)]
+[JsonSerializable(typeof(AppSettings))]
+internal sealed partial class SettingsJsonContext : JsonSerializerContext;

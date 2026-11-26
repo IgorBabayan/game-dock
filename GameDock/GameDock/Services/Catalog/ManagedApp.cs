@@ -4,7 +4,8 @@ namespace GameDock.Services.Catalog;
 
 /// <summary>
 /// An application that App Launcher can install, update, remove and open.
-/// Every app is published as a GitHub Release with an Inno Setup installer attached.
+/// Every app is published as a GitHub Release with an Inno Setup installer (Windows) and, optionally,
+/// portable archives for Linux and macOS attached.
 /// </summary>
 public sealed record ManagedApp
 {
@@ -29,7 +30,7 @@ public sealed record ManagedApp
     /// <summary>Accent color (#RRGGBB) used for the name and the installed version.</summary>
     public required string AccentColor { get; init; }
 
-    /// <summary>Pack URI of the icon embedded in App Launcher.</summary>
+    /// <summary><c>avares://</c> URI of the icon embedded in App Launcher.</summary>
     public required string IconUri { get; init; }
 
     public required string Owner { get; init; }
@@ -42,10 +43,13 @@ public sealed record ManagedApp
     /// </summary>
     public required string InnoAppId { get; init; }
 
-    /// <summary>Main executable inside the install folder.</summary>
+    /// <summary>
+    /// Main executable inside the install folder (Windows). On Linux / macOS the same name without <c>.exe</c>
+    /// (or an <c>.app</c> bundle on macOS) is looked up inside the unpacked archive.
+    /// </summary>
     public required string ExeName { get; init; }
 
-    /// <summary>Matches the Windows installer among the release assets.</summary>
+    /// <summary>Matches the installer for this platform among the release assets (see <see cref="AppCatalog"/>).</summary>
     public required Regex InstallerAssetPattern { get; init; }
 
     public Uri RepositoryUrl => new($"https://github.com/{Owner}/{Repository}");

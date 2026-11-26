@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
-using System.Windows;
 using GameDock.Presentation.Services.Toasts;
 using GameDock.Services.GitHub;
 using GameDock.Services.Notifications;
@@ -33,8 +32,16 @@ public sealed partial class AutoUpdater(
 
     public async Task RunOnStartupAsync()
     {
-        if (!settingsService.Current.AutoUpdate || !updateService.IsInstalled || IsBusy)
+        if (!settingsService.Current.AutoUpdate || IsBusy)
             return;
+
+        if (!updateService.IsInstalled)
+        {
+            // Portable Linux / macOS builds cannot replace themselves: only tell the user about a new release.
+            if (updateService.CanNotifyOnly)
+                await NotifyOnStartupAsync();
+            return;
+        }
 
         ReleaseInfo? update;
         IsBusy = true;
@@ -127,7 +134,7 @@ public sealed partial class AutoUpdater(
             updateService.LaunchInstaller(installerPath);
 
             // Exit now so the installer can replace the files; it starts the new version afterwards.
-            Application.Current.Shutdown();
+            WindowHelper.ShutdownApplication();
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -145,6 +152,34 @@ public sealed partial class AutoUpdater(
             toastService.Dismiss(toast);
             IsBusy = false;
         }
+    }
+
+    /// <summary>Checks for a newer release and, if there is one, shows a toast that opens its download page.</summary>
+    private async Task NotifyOnStartupAsync()
+    {
+        ReleaseInfo? update;
+        IsBusy = true;
+        try
+        {
+            update = await CheckCoreAsync();
+        }
+        catch (Exception ex) when (IsCheckError(ex))
+        {
+            Debug.WriteLine($"Update check failed: {ex.Message}");
+            return;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        if (update is null)
+            return;
+
+        var toast = toastService.Show(
+            $"A new version {VersionHelper.Format(update.Version)} of App Launcher is available",
+            duration: TimeSpan.FromSeconds(15));
+        toast.SetAction("Download", () => updateService.OpenReleasePage(update));
     }
 
     /// <summary>Shows "App Launcher will restart in N seconds" and ticks it down.</summary>

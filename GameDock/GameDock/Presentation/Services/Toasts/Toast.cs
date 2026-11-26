@@ -17,6 +17,11 @@ public sealed partial class Toast : ObservableObject
 
     public NotificationSeverity Severity { get; }
 
+    // Drive the severity icon through style classes (cheaper than converters, and compiled-binding friendly).
+    public bool IsSuccess => Severity == NotificationSeverity.Success;
+    public bool IsWarning => Severity == NotificationSeverity.Warning;
+    public bool IsError => Severity == NotificationSeverity.Error;
+
     /// <summary>Whether the toast shows a close (×) button.</summary>
     public bool IsClosable { get; }
 
