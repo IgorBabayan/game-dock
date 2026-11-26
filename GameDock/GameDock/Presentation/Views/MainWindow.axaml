@@ -420,7 +420,8 @@
                                          AutomationProperties.Name="Grid view"
                                          IsChecked="{Binding IsGridView, Mode=OneWay}"
                                          Command="{Binding ShowGridCommand}">
-                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Grid}" />
+                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Grid}"
+                                          Foreground="{Binding $parent[RadioButton].Foreground}" />
                             </RadioButton>
                             <RadioButton GroupName="ViewMode"
                                          Theme="{StaticResource SegmentRadioButton}"
@@ -428,7 +429,8 @@
                                          AutomationProperties.Name="List view"
                                          IsChecked="{Binding IsListView, Mode=OneWay}"
                                          Command="{Binding ShowListCommand}">
-                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.List}" />
+                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.List}"
+                                          Foreground="{Binding $parent[RadioButton].Foreground}" />
                             </RadioButton>
                         </StackPanel>
                     </Border>
