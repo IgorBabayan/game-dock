@@ -75,16 +75,15 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore
-        run: dotnet restore ${{ env.PROJECT }} -r ${{ env.RUNTIME }}
-
+      # No separate `dotnet restore` + `--no-restore`: a standalone restore doesn't see --self-contained / -c,
+      # so the runtime pack ReadyToRun needs is never restored (NETSDK1094). Publish restores with the exact
+      # same properties it builds with, like the Linux and macOS scripts.
       - name: Publish (self-contained, ReadyToRun)
         run: >
           dotnet publish ${{ env.PROJECT }}
           -c ${{ env.CONFIGURATION }}
           -r ${{ env.RUNTIME }}
           --self-contained true
-          --no-restore
           -p:Version=${{ needs.version.outputs.version }}
           -p:DebugType=none
           -o publish
