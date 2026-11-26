@@ -1,11 +1,10 @@
-using System.Windows;
+using Avalonia.Controls;
+using GameDock.Presentation.Services;
 using GameDock.Presentation.ViewModels;
 
 namespace GameDock.Presentation.Views;
 
-/// <summary>
-/// Interaction logic for SettingsWindow.xaml
-/// </summary>
+/// <summary>Settings dialog. Closes with <c>true</c> when the settings were saved.</summary>
 public partial class SettingsWindow : Window
 {
     private readonly SettingsViewModel _viewModel;
@@ -13,18 +12,18 @@ public partial class SettingsWindow : Window
     public SettingsWindow(SettingsViewModel viewModel)
     {
         InitializeComponent();
+        WindowChrome.Apply(this, titleBarHeight: 40);
+        WindowChrome.EnableDrag(this, TitleBar);
+        CloseButton.IsVisible = WindowChrome.HasCustomCaptionButtons;
+        TitleText.Margin = TitleText.Margin + WindowChrome.TitleBarInset;
+
         DataContext = _viewModel = viewModel;
 
         _viewModel.CloseRequested += OnCloseRequested;
         Closed += OnClosed;
     }
 
-    private void OnCloseRequested(object? sender, bool saved)
-    {
-        // Setting DialogResult on a modal window closes it.
-        if (IsVisible)
-            DialogResult = saved;
-    }
+    private void OnCloseRequested(object? sender, bool saved) => Close(saved);
 
     private void OnClosed(object? sender, EventArgs e)
     {

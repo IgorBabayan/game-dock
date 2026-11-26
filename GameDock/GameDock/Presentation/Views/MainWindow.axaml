@@ -1,0 +1,500 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:GameDock.Presentation.ViewModels"
+        xmlns:converters="using:GameDock.Presentation.Converters"
+        xmlns:toastViews="using:GameDock.Presentation.Views.Toasts"
+        mc:Ignorable="d"
+        x:Class="GameDock.Presentation.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="App Launcher"
+        Icon="/App.ico"
+        Width="1120"
+        Height="760"
+        MinWidth="720"
+        MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource UiFont}"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource WindowForegroundBrush}">
+
+    <!--
+        The content extends into the title bar (see WindowChrome.cs): drag the title bar to move, double-click to
+        maximize, resize from the edges. On Windows Minimize / Maximize / Close are drawn in the title bar.
+    -->
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
+    </Window.KeyBindings>
+
+    <Window.Resources>
+        <converters:WidthToColumnsConverter x:Key="WidthToColumnsConverter" MinCardWidth="330" MaxColumns="3" />
+
+        <!--
+            "…" menu shared by every card and row: created once and re-targeted when a "more" button is clicked,
+            instead of one menu per card.
+        -->
+        <ContextMenu x:Key="AppMenu" x:DataType="vm:AppCardViewModel" Placement="Bottom">
+            <MenuItem Header="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Open}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Install" Command="{Binding InstallCommand}" IsVisible="{Binding !IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Download}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Update" Command="{Binding UpdateCommand}" IsVisible="{Binding IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Update}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Reinstall latest version" Command="{Binding ReinstallCommand}" IsVisible="{Binding IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Repair}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Open install folder" Command="{Binding OpenFolderCommand}" IsVisible="{Binding IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Folder}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Release notes" Command="{Binding OpenReleasesCommand}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Document}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="View on GitHub" Command="{Binding OpenGitHubCommand}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Globe}" /></MenuItem.Icon>
+            </MenuItem>
+            <Separator IsVisible="{Binding IsInstalled}" />
+            <MenuItem Header="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}">
+                <MenuItem.Icon><PathIcon Width="13" Height="13" Data="{StaticResource Icon.Delete}" /></MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Status chip: blue "AVAILABLE TO INSTALL", amber "UPDATE AVAILABLE". -->
+        <ControlTheme x:Key="StatusChip" TargetType="Border" BasedOn="{StaticResource Chip}">
+            <Style Selector="^.update">
+                <Setter Property="BorderBrush" Value="{StaticResource WarningForegroundBrush}" />
+            </Style>
+        </ControlTheme>
+
+        <ControlTheme x:Key="StatusChipText" TargetType="TextBlock" BasedOn="{StaticResource MonoLabel}">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{StaticResource ChipForegroundBrush}" />
+            <Style Selector="^.update">
+                <Setter Property="Foreground" Value="{StaticResource WarningForegroundBrush}" />
+            </Style>
+        </ControlTheme>
+
+        <!-- App name drawn in two colors: "GD" in the app color + " Save Editor". -->
+        <DataTemplate x:Key="AppNameTemplate" x:DataType="vm:AppCardViewModel">
+            <TextBlock FontWeight="Bold" TextTrimming="CharacterEllipsis"><Run Text="{Binding NameAccent, Mode=OneWay}" Foreground="{Binding AccentBrush, Mode=OneWay}" /><Run Text="{Binding NameRest, Mode=OneWay}" /></TextBlock>
+        </DataTemplate>
+
+        <!-- Progress shown while an app is being downloaded, installed or removed. -->
+        <DataTemplate x:Key="BusyTemplate" x:DataType="vm:AppCardViewModel">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Theme="{StaticResource MonoLabel}"
+                               Text="{Binding BusyText}"
+                               TextTrimming="CharacterEllipsis" />
+                    <!-- Indeterminate only while busy: an indeterminate bar animates on every frame. -->
+                    <ProgressBar Margin="0,8,0,0"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding Progress, Mode=OneWay, TargetNullValue=0}"
+                                 IsIndeterminate="{Binding IsProgressIndeterminate, Mode=OneWay}" />
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Theme="{StaticResource TextLinkButton}"
+                        Content="CANCEL"
+                        Command="{Binding CancelCommand}"
+                        IsVisible="{Binding CanCancel}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- ===== Grid view: one card per app ===== -->
+        <DataTemplate x:Key="AppCardTemplate" x:DataType="vm:AppCardViewModel">
+            <!-- Negative margin lets neighbouring cards share one 1px border, like a table. -->
+            <Border Margin="0,0,-1,-1"
+                    MinHeight="300"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1">
+                <Grid RowDefinitions="Auto,*,Auto">
+
+                    <!-- version / GitHub -->
+                    <Border Grid.Row="0" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="20,10,12,10">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left"
+                                       Theme="{StaticResource MonoLabel}"
+                                       Foreground="{Binding VersionBrush, TargetNullValue={StaticResource SecondaryForegroundBrush}}"
+                                       Text="{Binding VersionText}" />
+                            <Button DockPanel.Dock="Right"
+                                    Theme="{StaticResource TextLinkButton}"
+                                    Content="GITHUB &#x2197;"
+                                    ToolTip.Tip="{Binding App.RepositoryUrl}"
+                                    Command="{Binding OpenGitHubCommand}" />
+                        </DockPanel>
+                    </Border>
+
+                    <!-- icon, name, description -->
+                    <StackPanel Grid.Row="1" Margin="20,18,20,12">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Image Grid.Column="0"
+                                   Width="56"
+                                   Height="56"
+                                   Source="{Binding Icon}"
+                                   Stretch="UniformToFill"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                            <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                <WrapPanel>
+                                    <ContentControl Content="{Binding}"
+                                                    ContentTemplate="{StaticResource AppNameTemplate}"
+                                                    FontSize="22"
+                                                    VerticalAlignment="Center"
+                                                    Margin="0,0,8,0" />
+                                    <Border Theme="{StaticResource Chip}" VerticalAlignment="Center">
+                                        <TextBlock Theme="{StaticResource MonoLabel}" FontSize="10" Text="BY IGORBABAYAN"
+                                                   Foreground="{StaticResource ChipForegroundBrush}" />
+                                    </Border>
+                                </WrapPanel>
+                                <TextBlock Margin="0,2,0,0" FontSize="13" Text="{Binding Tagline}"
+                                           Foreground="{StaticResource SecondaryForegroundBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Margin="0,16,0,0"
+                                Theme="{StaticResource StatusChip}"
+                                Classes.update="{Binding IsUpdateAvailable}"
+                                IsVisible="{Binding HasStatus}">
+                            <TextBlock Theme="{StaticResource StatusChipText}"
+                                       Classes.update="{Binding IsUpdateAvailable}"
+                                       Text="{Binding StatusText}" />
+                        </Border>
+
+                        <TextBlock Margin="0,16,0,0" FontSize="13" TextWrapping="Wrap" Text="{Binding Description}" />
+                        <TextBlock Margin="0,8,0,0" FontSize="12" Text="{Binding LastUpdatedText}"
+                                   Foreground="{StaticResource MutedForegroundBrush}" />
+                    </StackPanel>
+
+                    <!-- actions -->
+                    <Panel Grid.Row="2" Margin="20,0,20,20" MinHeight="34">
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsBusy}">
+                            <Button Grid.Column="0"
+                                    HorizontalAlignment="Stretch"
+                                    Theme="{StaticResource AppPrimaryButton}"
+                                    Classes.update="{Binding IsUpdateAvailable}"
+                                    Content="{Binding PrimaryText}"
+                                    Command="{Binding PrimaryCommand}" />
+                            <Button Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    Theme="{StaticResource IconButton}"
+                                    ToolTip.Tip="More actions"
+                                    AutomationProperties.Name="More actions"
+                                    Classes="more">
+                                <PathIcon Width="13" Height="13" Data="{StaticResource Icon.More}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- Download / install / remove progress -->
+                        <ContentControl Content="{Binding}"
+                                        ContentTemplate="{StaticResource BusyTemplate}"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding IsBusy}" />
+                    </Panel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- ===== List view: one row per app ===== -->
+        <DataTemplate x:Key="AppRowTemplate" x:DataType="vm:AppCardViewModel">
+            <Border Margin="0,0,0,-1"
+                    Padding="16,12"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource CardBorderBrush}"
+                    BorderThickness="1">
+                <!-- icon, name, version, status / progress, actions -->
+                <Grid ColumnDefinitions="Auto,*,110,260,Auto">
+                    <Image Grid.Column="0"
+                           Width="36"
+                           Height="36"
+                           Source="{Binding Icon}"
+                           Stretch="UniformToFill"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+                    <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AppNameTemplate}" FontSize="15" />
+                        <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource SecondaryForegroundBrush}">
+                            <Run Text="{Binding Tagline, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding LastUpdatedText, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+
+                    <TextBlock Grid.Column="2"
+                               Theme="{StaticResource MonoLabel}"
+                               Foreground="{Binding VersionBrush, TargetNullValue={StaticResource SecondaryForegroundBrush}}"
+                               Text="{Binding VersionText}" />
+
+                    <Panel Grid.Column="3" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <Border Theme="{StaticResource StatusChip}"
+                                Classes.update="{Binding IsUpdateAvailable}"
+                                IsVisible="{Binding HasStatus}">
+                            <TextBlock Theme="{StaticResource StatusChipText}"
+                                       Classes.update="{Binding IsUpdateAvailable}"
+                                       Text="{Binding StatusText}" />
+                        </Border>
+                        <ContentControl Content="{Binding}"
+                                        ContentTemplate="{StaticResource BusyTemplate}"
+                                        IsVisible="{Binding IsBusy}" />
+                    </Panel>
+
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                IsVisible="{Binding !IsBusy}">
+                        <Button Width="110"
+                                Theme="{StaticResource AppPrimaryButton}"
+                                Classes.update="{Binding IsUpdateAvailable}"
+                                Content="{Binding PrimaryText}"
+                                Command="{Binding PrimaryCommand}" />
+                        <Button Margin="8,0,0,0"
+                                Theme="{StaticResource IconButton}"
+                                ToolTip.Tip="More actions"
+                                AutomationProperties.Name="More actions"
+                                Classes="more">
+                            <PathIcon Width="13" Height="13" Data="{StaticResource Icon.More}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- Both sections switch between cards and rows with the view toggle (Classes.list). -->
+        <ControlTheme x:Key="AppsItemsControl" TargetType="ItemsControl">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="ItemTemplate" Value="{StaticResource AppCardTemplate}" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <!-- Columns follow the width of the scroll area: 1 to 3 cards per row. -->
+                    <UniformGrid Margin="0,0,1,1"
+                                 VerticalAlignment="Top"
+                                 Columns="{Binding $parent[ScrollViewer].Bounds.Width, Converter={StaticResource WidthToColumnsConverter}}" />
+                </ItemsPanelTemplate>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ItemsPresenter Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                </ControlTemplate>
+            </Setter>
+
+            <Style Selector="^.list">
+                <Setter Property="ItemTemplate" Value="{StaticResource AppRowTemplate}" />
+                <Setter Property="ItemsPanel">
+                    <ItemsPanelTemplate>
+                        <StackPanel Margin="0,0,0,1" />
+                    </ItemsPanelTemplate>
+                </Setter>
+            </Style>
+        </ControlTheme>
+    </Window.Resources>
+
+    <Border x:Name="RootBorder"
+            BorderBrush="{StaticResource WindowBorderBrush}"
+            BorderThickness="1">
+        <Grid RowDefinitions="48,Auto,*,32">
+
+            <!-- ===== Title bar ===== -->
+            <Border x:Name="TitleBar"
+                    Grid.Row="0"
+                    Background="{StaticResource TitleBarBackgroundBrush}"
+                    BorderBrush="{StaticResource WindowBorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <!-- logo, drag area, settings, min / max / close -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+
+                    <StackPanel x:Name="TitleContent" Grid.Column="0" Orientation="Horizontal" Margin="18,0,22,0" VerticalAlignment="Center">
+                        <Image Width="22" Height="22" Source="/Assets/logo.png"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <TextBlock Margin="10,0,0,0"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="18"
+                                   FontWeight="Bold"
+                                   Text="APP LAUNCHER" />
+                    </StackPanel>
+
+                    <Border Grid.Column="2" BorderBrush="{StaticResource WindowBorderBrush}" BorderThickness="1,0,1,0">
+                        <Panel>
+                            <Button Width="48"
+                                    Height="47"
+                                    Theme="{StaticResource TitleBarToolButton}"
+                                    ToolTip.Tip="Settings"
+                                    AutomationProperties.Name="Settings"
+                                    Command="{Binding OpenSettingsCommand}">
+                                <PathIcon Width="16" Height="16" Data="{StaticResource Icon.Settings}" />
+                            </Button>
+                            <!-- Dot: a newer App Launcher is available. -->
+                            <Ellipse Width="7" Height="7" Margin="0,12,12,0"
+                                     HorizontalAlignment="Right" VerticalAlignment="Top"
+                                     IsHitTestVisible="False"
+                                     Fill="{StaticResource WarningForegroundBrush}"
+                                     IsVisible="{Binding HasLauncherUpdate}" />
+                        </Panel>
+                    </Border>
+
+                    <StackPanel x:Name="CaptionButtons" Grid.Column="3" Orientation="Horizontal">
+                        <Button Height="47"
+                                Theme="{StaticResource CaptionButton}"
+                                ToolTip.Tip="Minimize"
+                                Click="OnMinimizeClick">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Minimize}" />
+                        </Button>
+                        <Button x:Name="MaximizeButton"
+                                Height="47"
+                                Theme="{StaticResource CaptionButton}"
+                                ToolTip.Tip="Maximize"
+                                Click="OnMaximizeRestoreClick">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Maximize}" />
+                        </Button>
+                        <Button x:Name="RestoreButton"
+                                Height="47"
+                                IsVisible="False"
+                                Theme="{StaticResource CaptionButton}"
+                                ToolTip.Tip="Restore Down"
+                                Click="OnMaximizeRestoreClick">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Restore}" />
+                        </Button>
+                        <Button Height="47"
+                                Theme="{StaticResource CloseCaptionButton}"
+                                ToolTip.Tip="Close"
+                                Click="OnCloseClick">
+                            <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Close}" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ===== Toolbar ===== -->
+            <Grid Grid.Row="1" Margin="20,18,20,0" ColumnDefinitions="Auto,*,Auto">
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Theme="{StaticResource IconButton}"
+                            ToolTip.Tip="Check for new releases (F5)"
+                            AutomationProperties.Name="Check for new releases"
+                            Command="{Binding RefreshCommand}">
+                        <PathIcon Width="13" Height="13" Data="{StaticResource Icon.Refresh}" />
+                    </Button>
+                    <Button Margin="10,0,0,0"
+                            Theme="{StaticResource PrimaryButton}"
+                            Content="{Binding UpdateAllText}"
+                            Command="{Binding UpdateAllCommand}"
+                            IsVisible="{Binding HasUpdates}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock Margin="0,0,10,0" Theme="{StaticResource MonoLabel}" Text="SORT"
+                               Foreground="{StaticResource MutedForegroundBrush}" />
+                    <ComboBox Width="190"
+                              Theme="{StaticResource DarkComboBox}"
+                              ItemsSource="{Binding SortOptions}"
+                              SelectedItem="{Binding SelectedSort}"
+                              AutomationProperties.Name="Sort apps" />
+                    <Panel Margin="8,0,0,0" Width="200">
+                        <TextBox x:Name="SearchBox"
+                                 Classes="search"
+                                 Watermark="Search apps"
+                                 Padding="8,0,28,0"
+                                 AutomationProperties.Name="Search apps"
+                                 Text="{Binding SearchText}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Escape" Command="{Binding ClearSearchCommand}" />
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <PathIcon Width="12"
+                                  Height="12"
+                                  Margin="0,0,10,0"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  Data="{StaticResource Icon.Search}"
+                                  IsHitTestVisible="False"
+                                  Foreground="{StaticResource MutedForegroundBrush}" />
+                    </Panel>
+                    <Border Margin="12,0,0,0" BorderBrush="{StaticResource ControlBorderBrush}" BorderThickness="1">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton GroupName="ViewMode"
+                                         Theme="{StaticResource SegmentRadioButton}"
+                                         ToolTip.Tip="Grid"
+                                         AutomationProperties.Name="Grid view"
+                                         IsChecked="{Binding IsGridView, Mode=OneWay}"
+                                         Command="{Binding ShowGridCommand}">
+                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.Grid}" />
+                            </RadioButton>
+                            <RadioButton GroupName="ViewMode"
+                                         Theme="{StaticResource SegmentRadioButton}"
+                                         ToolTip.Tip="List"
+                                         AutomationProperties.Name="List view"
+                                         IsChecked="{Binding IsListView, Mode=OneWay}"
+                                         Command="{Binding ShowListCommand}">
+                                <PathIcon Width="14" Height="14" Data="{StaticResource Icon.List}" />
+                            </RadioButton>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- ===== Apps ===== -->
+            <ScrollViewer x:Name="AppsScroll"
+                          Grid.Row="2"
+                          Margin="0,18,0,0"
+                          Padding="20,0,20,20"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Focusable="False">
+                <StackPanel>
+                    <TextBlock Margin="0,0,0,10"
+                               Theme="{StaticResource SectionHeader}"
+                               Text="INSTALLED"
+                               IsVisible="{Binding HasInstalledApps}" />
+                    <ItemsControl Theme="{StaticResource AppsItemsControl}"
+                                  Classes.list="{Binding IsListView}"
+                                  ItemsSource="{Binding InstalledApps}"
+                                  IsVisible="{Binding HasInstalledApps}" />
+
+                    <TextBlock Theme="{StaticResource SectionHeader}"
+                               Text="NOT INSTALLED"
+                               IsVisible="{Binding HasAvailableApps}" />
+                    <ItemsControl Theme="{StaticResource AppsItemsControl}"
+                                  Classes.list="{Binding IsListView}"
+                                  ItemsSource="{Binding AvailableApps}"
+                                  IsVisible="{Binding HasAvailableApps}" />
+
+                    <TextBlock Margin="0,60,0,0"
+                               HorizontalAlignment="Center"
+                               Theme="{StaticResource SecondaryText}"
+                               FontSize="14"
+                               Text="No apps match your search."
+                               IsVisible="{Binding HasNoMatches}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ===== Status bar ===== -->
+            <Border Grid.Row="3"
+                    Background="{StaticResource TitleBarBackgroundBrush}"
+                    BorderBrush="{StaticResource WindowBorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="20,0,12,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right"
+                            Theme="{StaticResource TextLinkButton}"
+                            Content="GITHUB &#x2197;"
+                            ToolTip.Tip="{Binding RepositoryUrl}"
+                            Command="{Binding OpenRepositoryCommand}" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Margin="0,0,8,0"
+                               Theme="{StaticResource MonoLabel}"
+                               Foreground="{StaticResource MutedForegroundBrush}"
+                               Text="{Binding LauncherVersionText}" />
+                    <TextBlock Theme="{StaticResource MonoLabel}"
+                               Foreground="{StaticResource MutedForegroundBrush}"
+                               Text="{Binding LastCheckedText}" />
+                </DockPanel>
+            </Border>
+
+            <!-- Toasts float above everything, bottom-right. -->
+            <toastViews:ToastHost Grid.Row="0" Grid.RowSpan="4" Margin="16,16,16,44" />
+        </Grid>
+    </Border>
+</Window>

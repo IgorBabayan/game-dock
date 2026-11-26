@@ -1,7 +1,8 @@
 <!-- App Launcher color palette (dark). Keys follow the other apps (GD / LE Save Editor) where they overlap. -->
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
+    <!-- Referenced with StaticResource: the palette is fixed, so no DynamicResource subscriptions are needed. -->
     <SolidColorBrush x:Key="TitleBarBackgroundBrush"         Color="#0E0F11" />
     <SolidColorBrush x:Key="TitleBarInactiveForegroundBrush" Color="#6B6E76" />
     <SolidColorBrush x:Key="WindowBackgroundBrush"           Color="#121316" />

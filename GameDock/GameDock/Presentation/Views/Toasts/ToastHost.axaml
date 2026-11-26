@@ -1,0 +1,118 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:toasts="using:GameDock.Presentation.Services.Toasts"
+             mc:Ignorable="d"
+             x:Class="GameDock.Presentation.Views.Toasts.ToastHost"
+             x:DataType="toasts:IToastService"
+             HorizontalAlignment="Right"
+             VerticalAlignment="Bottom"
+             Margin="16">
+
+    <!--
+        Bottom-right stack of toasts. Placed in every window that may be in front (main window, Settings);
+        only the frontmost host shows them, see ToastHost.axaml.cs.
+    -->
+
+    <UserControl.Styles>
+        <!-- Slide + fade in when the toast appears (runs once, when the item is attached). -->
+        <Style Selector="Grid.toast">
+            <Style.Animations>
+                <Animation Duration="0:0:0.18" Easing="CubicEaseOut" FillMode="Forward">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="TranslateTransform.Y" Value="12" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                        <Setter Property="TranslateTransform.Y" Value="0" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <!-- Severity icon: info by default. -->
+        <Style Selector="PathIcon.severity">
+            <Setter Property="Data" Value="{StaticResource Icon.Info}" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+        <Style Selector="PathIcon.severity.success">
+            <Setter Property="Data" Value="{StaticResource Icon.Success}" />
+            <Setter Property="Foreground" Value="{StaticResource SuccessForegroundBrush}" />
+        </Style>
+        <Style Selector="PathIcon.severity.warning">
+            <Setter Property="Data" Value="{StaticResource Icon.Warning}" />
+            <Setter Property="Foreground" Value="{StaticResource WarningForegroundBrush}" />
+        </Style>
+        <Style Selector="PathIcon.severity.error">
+            <Setter Property="Data" Value="{StaticResource Icon.Error}" />
+            <Setter Property="Foreground" Value="{StaticResource ErrorForegroundBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <ItemsControl x:Name="ToastList" ItemsSource="{Binding Toasts}" Focusable="False">
+        <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="toasts:Toast">
+                <Grid Classes="toast" Width="340" Margin="0,8,0,0">
+                    <Grid.RenderTransform>
+                        <TranslateTransform />
+                    </Grid.RenderTransform>
+
+                    <!-- BoxShadow is drawn by the border itself: no off-screen effect pass, text stays crisp. -->
+                    <Border BorderThickness="1"
+                            BorderBrush="{StaticResource ControlBorderBrush}"
+                            Background="{StaticResource CardBackgroundBrush}"
+                            BoxShadow="0 2 16 0 #73000000"
+                            Padding="14,12,8,12">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <PathIcon Grid.Column="0"
+                                      Classes="severity"
+                                      Classes.success="{Binding IsSuccess}"
+                                      Classes.warning="{Binding IsWarning}"
+                                      Classes.error="{Binding IsError}"
+                                      Width="16"
+                                      Height="16"
+                                      Margin="0,1,12,0"
+                                      VerticalAlignment="Top" />
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Message}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource WindowForegroundBrush}" />
+                                <TextBlock Margin="0,2,0,0"
+                                           Text="{Binding Details}"
+                                           Theme="{StaticResource SecondaryText}"
+                                           IsVisible="{Binding HasDetails}" />
+                                <ProgressBar Margin="0,8,0,0"
+                                             Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding ProgressPercent, Mode=OneWay}"
+                                             IsVisible="{Binding HasProgress}" />
+                                <Button Margin="-8,6,0,0"
+                                        HorizontalAlignment="Left"
+                                        Theme="{StaticResource TextLinkButton}"
+                                        Content="{Binding ActionText}"
+                                        Command="{Binding ActionCommand}"
+                                        IsVisible="{Binding HasAction}" />
+                            </StackPanel>
+
+                            <Button Grid.Column="2"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Top"
+                                    ToolTip.Tip="Close"
+                                    Theme="{StaticResource SubtleIconButton}"
+                                    Command="{Binding $parent[ItemsControl].((toasts:IToastService)DataContext).DismissCommand}"
+                                    CommandParameter="{Binding}"
+                                    IsVisible="{Binding IsClosable}">
+                                <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Close}" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </DataTemplate>
+        </ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

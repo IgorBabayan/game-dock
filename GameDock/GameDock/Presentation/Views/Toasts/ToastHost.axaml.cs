@@ -1,6 +1,5 @@
-using System.ComponentModel;
-using System.Windows;
-using System.Windows.Controls;
+using Avalonia;
+using Avalonia.Controls;
 using GameDock.Presentation.Services.Toasts;
 
 namespace GameDock.Presentation.Views.Toasts;
@@ -18,19 +17,18 @@ public partial class ToastHost : UserControl
     {
         InitializeComponent();
 
-        if (DesignerProperties.GetIsInDesignMode(this))
+        if (Design.IsDesignMode)
             return;
 
         // Created by XAML, so constructor injection is not available here.
         DataContext = App.Services.GetRequiredService<IToastService>();
-
-        Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _window = Window.GetWindow(this);
+        base.OnAttachedToVisualTree(e);
+
+        _window = TopLevel.GetTopLevel(this) as Window;
         if (_window is null)
             return;
 
@@ -39,14 +37,16 @@ public partial class ToastHost : UserControl
         UpdateVisibility();
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e)
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (_window is null)
-            return;
+        if (_window is not null)
+        {
+            _window.Activated -= OnWindowActivationChanged;
+            _window.Deactivated -= OnWindowActivationChanged;
+            _window = null;
+        }
 
-        _window.Activated -= OnWindowActivationChanged;
-        _window.Deactivated -= OnWindowActivationChanged;
-        _window = null;
+        base.OnDetachedFromVisualTree(e);
     }
 
     private void OnWindowActivationChanged(object? sender, EventArgs e) => UpdateVisibility();
@@ -57,7 +57,19 @@ public partial class ToastHost : UserControl
             return;
 
         // An open owned dialog hosts the toasts itself (it is in front of this window).
-        var hasOpenDialog = !_window.IsActive && _window.OwnedWindows.OfType<Window>().Any(w => w.IsVisible);
-        Visibility = hasOpenDialog ? Visibility.Collapsed : Visibility.Visible;
+        var hasOpenDialog = false;
+        if (!_window.IsActive)
+        {
+            foreach (var owned in _window.OwnedWindows)
+            {
+                if (owned.IsVisible)
+                {
+                    hasOpenDialog = true;
+                    break;
+                }
+            }
+        }
+
+        IsVisible = !hasOpenDialog;
     }
 }

@@ -2,14 +2,17 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
+using Avalonia.Media;
+using Avalonia.Media.Immutable;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using GameDock.Presentation.Services;
 using GameDock.Presentation.Services.Toasts;
 using GameDock.Services.Catalog;
 using GameDock.Services.GitHub;
 using GameDock.Services.Installation;
 using GameDock.Services.Notifications;
+using GameDock.Services.Platform;
 
 namespace GameDock.Presentation.ViewModels;
 
@@ -36,9 +39,8 @@ public sealed partial class AppCardViewModel : ObservableObject
         _toasts = toasts;
         _dialogs = dialogs;
 
-        var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(app.AccentColor)!;
-        brush.Freeze();
-        AccentBrush = brush;
+        // Immutable: shared by the name and version texts without change tracking.
+        AccentBrush = new ImmutableSolidColorBrush(Color.Parse(app.AccentColor));
 
         Icon = LoadIcon(app.IconUri);
     }
@@ -53,14 +55,14 @@ public sealed partial class AppCardViewModel : ObservableObject
     public string NameRest => App.NameRest;
     public string Tagline => App.Tagline;
     public string Description => App.Description;
-    public Brush AccentBrush { get; }
-    public ImageSource? Icon { get; }
+    public IBrush AccentBrush { get; }
+    public Bitmap? Icon { get; }
 
     // ===== State =====
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsInstalled), nameof(IsUpdateAvailable), nameof(VersionText), nameof(StatusText),
-        nameof(HasStatus), nameof(PrimaryText), nameof(InstalledVersionText), nameof(UpdateText))]
+        nameof(HasStatus), nameof(PrimaryText), nameof(InstalledVersionText), nameof(UpdateText), nameof(VersionBrush))]
     private InstalledApp? _installed;
 
     [ObservableProperty]
@@ -74,7 +76,7 @@ public sealed partial class AppCardViewModel : ObservableObject
     private string? _releaseError;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PrimaryText), nameof(HasStatus))]
+    [NotifyPropertyChangedFor(nameof(PrimaryText), nameof(HasStatus), nameof(IsProgressIndeterminate))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -95,13 +97,20 @@ public sealed partial class AppCardViewModel : ObservableObject
     public bool IsUpdateAvailable =>
         Installed?.Version is { } installed && Latest is { Installer: not null } latest && latest.Version > installed;
 
-    public bool IsProgressIndeterminate => Progress is null;
+    /// <summary>
+    /// Only while busy: an indeterminate progress bar animates on every frame even when its card is idle,
+    /// which would keep the renderer (and a CPU core) busy for nothing.
+    /// </summary>
+    public bool IsProgressIndeterminate => IsBusy && Progress is null;
 
     /// <summary>Version shown in the card header: the installed one, or the latest release when not installed.</summary>
     public string VersionText =>
         Installed is { } installed
             ? installed.Version is { } v ? $"V{VersionHelper.Format(v)}" : "INSTALLED"
             : Latest is { } latest ? $"V{VersionHelper.Format(latest.Version)}" : "—";
+
+    /// <summary>Color of <see cref="VersionText"/>: the app color when installed, <c>null</c> (theme grey) otherwise.</summary>
+    public IBrush? VersionBrush => IsInstalled ? AccentBrush : null;
 
     public string? InstalledVersionText =>
         Installed?.Version is { } v ? VersionHelper.Format(v) : null;
@@ -122,7 +131,7 @@ public sealed partial class AppCardViewModel : ObservableObject
                 return "AVAILABLE TO INSTALL";
             if (ReleaseError is not null)
                 return "RELEASE INFO UNAVAILABLE";
-            return Latest is null ? "NO RELEASE YET" : "NO WINDOWS INSTALLER";
+            return Latest is null ? "NO RELEASE YET" : PlatformInfo.MissingInstallerStatus;
         }
     }
 
@@ -146,11 +155,16 @@ public sealed partial class AppCardViewModel : ObservableObject
         if (IsBusy)
             return;
 
-        var wasInstalled = IsInstalled;
+        var previous = Installed;
         Installed = _registry.Find(App);
+
+        // Called on every window activation: only touch the commands when something actually changed.
+        if (Equals(previous, Installed))
+            return;
+
         RefreshCommands();
 
-        if (wasInstalled != IsInstalled)
+        if ((previous is null) != (Installed is null))
             InstalledStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -231,7 +245,7 @@ public sealed partial class AppCardViewModel : ObservableObject
             return;
         }
 
-        if (!_dialogs.Confirm(
+        if (!await _dialogs.ConfirmAsync(
                 $"Remove {Name}?",
                 $"{Name} will be uninstalled from\n{installed.InstallFolder}\n\nYour saves and settings are not deleted.",
                 "Remove",
@@ -281,7 +295,7 @@ public sealed partial class AppCardViewModel : ObservableObject
     {
         if (Latest is not { Installer: not null } release)
         {
-            _toasts.Show($"No Windows installer is published for {Name} yet", NotificationSeverity.Warning);
+            _toasts.Show($"No {PlatformInfo.InstallerKind} is published for {Name} yet", NotificationSeverity.Warning);
             return;
         }
 
@@ -381,6 +395,8 @@ public sealed partial class AppCardViewModel : ObservableObject
         _operation = null;
 
         RefreshInstalled();
+        // IsBusy changed: re-evaluate the commands even if the installed state did not.
+        RefreshCommands();
         // Installed may not have changed (failed update), but the version may have.
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(HasStatus));
@@ -425,19 +441,15 @@ public sealed partial class AppCardViewModel : ObservableObject
             context.Post(_ => action(), null);
     }
 
-    private static ImageSource? LoadIcon(string uri)
+    private static Bitmap? LoadIcon(string uri)
     {
         try
         {
-            var image = new BitmapImage();
-            image.BeginInit();
-            image.UriSource = new Uri(uri, UriKind.Absolute);
-            image.CacheOption = BitmapCacheOption.OnLoad;
-            image.EndInit();
-            image.Freeze();
-            return image;
+            using var stream = AssetLoader.Open(new Uri(uri, UriKind.Absolute));
+            return new Bitmap(stream);
         }
-        catch (Exception ex) when (ex is IOException or NotSupportedException or UriFormatException)
+        catch (Exception ex) when (ex is IOException or NotSupportedException or UriFormatException or ArgumentException
+                                       or InvalidOperationException)
         {
             Debug.WriteLine($"Could not load icon {uri}: {ex.Message}");
             return null;

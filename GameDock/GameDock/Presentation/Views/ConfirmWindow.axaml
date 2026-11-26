@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GameDock.Presentation.Views.ConfirmWindow"
+        Width="440"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="{StaticResource UiFont}"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource WindowForegroundBrush}">
+
+    <Border BorderBrush="{StaticResource WindowBorderBrush}" BorderThickness="1">
+        <Grid RowDefinitions="40,Auto,Auto">
+
+            <Border x:Name="TitleBar"
+                    Grid.Row="0"
+                    Background="{StaticResource TitleBarBackgroundBrush}"
+                    BorderBrush="{StaticResource WindowBorderBrush}"
+                    BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <Button x:Name="CloseButton"
+                            DockPanel.Dock="Right"
+                            Height="39"
+                            Theme="{StaticResource CloseCaptionButton}"
+                            ToolTip.Tip="Close"
+                            Click="OnCancelClick">
+                        <PathIcon Width="10" Height="10" Data="{StaticResource Icon.Close}" />
+                    </Button>
+                    <TextBlock x:Name="TitleText"
+                               Margin="18,0,0,0"
+                               Theme="{StaticResource MonoLabel}"
+                               Foreground="{StaticResource WindowForegroundBrush}" />
+                </DockPanel>
+            </Border>
+
+            <TextBlock x:Name="MessageText"
+                       Grid.Row="1"
+                       Margin="24,22,24,8"
+                       FontSize="13"
+                       TextWrapping="Wrap" />
+
+            <StackPanel Grid.Row="2" Margin="24,16,24,24" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CancelButton"
+                        Width="110"
+                        Theme="{StaticResource OutlineButton}"
+                        Content="CANCEL"
+                        IsCancel="True"
+                        Click="OnCancelClick" />
+                <Button x:Name="ConfirmButton"
+                        Width="110"
+                        Margin="8,0,0,0"
+                        Theme="{StaticResource PrimaryButton}"
+                        IsDefault="True"
+                        Click="OnConfirmClick" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

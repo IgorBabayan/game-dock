@@ -14,6 +14,15 @@ public interface IUpdateService
     /// </summary>
     bool IsInstalled { get; }
 
+    /// <summary>
+    /// True where updates cannot be installed automatically (Linux / macOS portable builds): a newer release is
+    /// only announced, with a link to its download page.
+    /// </summary>
+    bool CanNotifyOnly { get; }
+
+    /// <summary>Opens the web page of <paramref name="update"/> (or the latest release) in the browser.</summary>
+    void OpenReleasePage(ReleaseInfo update);
+
     /// <summary>Returns the latest release if it is newer than <see cref="CurrentVersion"/>, otherwise <c>null</c>.</summary>
     Task<ReleaseInfo?> CheckForUpdateAsync(CancellationToken cancellationToken = default);
 

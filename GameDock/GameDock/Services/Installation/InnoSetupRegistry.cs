@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Security;
 using GameDock.Services.Catalog;
 using GameDock.Services.GitHub;
@@ -11,6 +12,7 @@ namespace GameDock.Services.Installation;
 /// Reads <c>Software\Microsoft\Windows\CurrentVersion\Uninstall\{AppId}_is1</c>, which Inno Setup writes
 /// to HKCU for per-user installs and to HKLM for all-users installs.
 /// </summary>
+[SupportedOSPlatform("windows")]
 public sealed class InnoSetupRegistry : IInstalledAppRegistry
 {
     private const string UninstallRoot = @"Software\Microsoft\Windows\CurrentVersion\Uninstall";

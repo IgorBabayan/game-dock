@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Title bar buttons. The windows extend their content into the title bar on Windows and macOS
+        (see Presentation/Services/WindowChrome.cs); on Windows Minimize / Maximize / Close are drawn here,
+        macOS keeps its native traffic lights and Linux keeps the window manager's title bar.
+        Content is a PathIcon from Themes/Icons.axaml.
+    -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://GameDock/Themes/Colors.axaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Base theme for every button that lives in the title bar -->
+    <ControlTheme x:Key="CaptionButton" TargetType="Button">
+        <Setter Property="Width" Value="46" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonHoverBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonPressedBrush}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Custom (app-specific) title bar buttons: slightly larger icons -->
+    <ControlTheme x:Key="TitleBarToolButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+        <Setter Property="Width" Value="40" />
+    </ControlTheme>
+
+    <!-- Title bar toggle button: same look as a tool button, stays highlighted while checked -->
+    <ControlTheme x:Key="TitleBarToggleButton" TargetType="ToggleButton">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Foreground" Value="{StaticResource WindowForegroundBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Name="Bd" Background="{TemplateBinding Background}">
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonHoverBrush}" />
+        </Style>
+        <Style Selector="^:checked /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonHoverBrush}" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CaptionButtonPressedBrush}" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+    </ControlTheme>
+
+    <!-- Close button: red hover like the native one -->
+    <ControlTheme x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+        <Style Selector="^:pointerover">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CloseButtonHoverBrush}" />
+        </Style>
+        <Style Selector="^:pressed">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="^:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{StaticResource CloseButtonPressedBrush}" />
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>
