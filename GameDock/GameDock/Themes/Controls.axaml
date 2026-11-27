@@ -193,7 +193,7 @@
         </Style>
     </ControlTheme>
 
-    <!-- Link-style text button ("GITHUB ↗", toast actions). -->
+    <!-- Link-style text button (toast actions). -->
     <ControlTheme x:Key="TextLinkButton" TargetType="Button">
         <Setter Property="Foreground" Value="{StaticResource SecondaryForegroundBrush}" />
         <Setter Property="Background" Value="Transparent" />
@@ -224,6 +224,30 @@
         <Style Selector="^:disabled">
             <Setter Property="Opacity" Value="0.4" />
         </Style>
+    </ControlTheme>
+
+    <!--
+        Link button that opens an external page: text followed by a vector "↗" arrow. The arrow is drawn as a path
+        because the U+2197 glyph is missing from the mono fonts (Cascadia Mono, Consolas, …) and renders as a box.
+    -->
+    <ControlTheme x:Key="ExternalLinkButton" TargetType="Button" BasedOn="{StaticResource TextLinkButton}">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="False" />
+                        <PathIcon Width="8"
+                                  Height="8"
+                                  VerticalAlignment="Center"
+                                  Foreground="{TemplateBinding Foreground}"
+                                  Data="{StaticResource Icon.External}" />
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
     </ControlTheme>
 
     <!-- Grid / list switch: a pair of radio buttons that look like a segmented control. -->

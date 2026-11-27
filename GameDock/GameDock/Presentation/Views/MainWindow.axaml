@@ -125,8 +125,8 @@
                                        Foreground="{Binding VersionBrush, TargetNullValue={StaticResource SecondaryForegroundBrush}}"
                                        Text="{Binding VersionText}" />
                             <Button DockPanel.Dock="Right"
-                                    Theme="{StaticResource TextLinkButton}"
-                                    Content="GITHUB &#x2197;"
+                                    Theme="{StaticResource ExternalLinkButton}"
+                                    Content="GITHUB"
                                     ToolTip.Tip="{Binding App.RepositoryUrl}"
                                     Command="{Binding OpenGitHubCommand}" />
                         </DockPanel>
@@ -480,8 +480,8 @@
                     Padding="20,0,12,0">
                 <DockPanel>
                     <Button DockPanel.Dock="Right"
-                            Theme="{StaticResource TextLinkButton}"
-                            Content="GITHUB &#x2197;"
+                            Theme="{StaticResource ExternalLinkButton}"
+                            Content="GITHUB"
                             ToolTip.Tip="{Binding RepositoryUrl}"
                             Command="{Binding OpenRepositoryCommand}" />
                     <TextBlock DockPanel.Dock="Right"
