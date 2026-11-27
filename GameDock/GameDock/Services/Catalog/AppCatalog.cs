@@ -102,6 +102,23 @@ public static partial class AppCatalog
             ExeName = "Navigator.exe",
             // Navigator-1.0.3-win-x64-setup.exe
             InstallerAssetPattern = Installer(NavigatorInstaller, "Navigator-")
+        },
+        new ManagedApp
+        {
+            Id = "exile-lens",
+            Name = "Exile Lens",
+            NameAccent = "Exile",
+            NameRest = " Lens",
+            Tagline = "Path of Exile item inspector",
+            Description = "Inspect items, check prices and analyse map modifiers for Path of Exile 1 and 2 via an in-game overlay.",
+            AccentColor = "#C96442",
+            IconUri = "avares://GameDock/Assets/Apps/exile-lens.png",
+            Owner = Owner,
+            Repository = "exile-lens",
+            InnoAppId = "{6E1F2B7C-3A4D-4E8B-9C21-5D7A0E9F4B13}",
+            ExeName = "ExileLens.exe",
+            // ExileLens-1.2.3-win-x64-setup.exe
+            InstallerAssetPattern = Installer(ExileLensInstaller, "ExileLens-")
         }
     ];
 
@@ -125,4 +142,7 @@ public static partial class AppCatalog
 
     [GeneratedRegex(@"^Navigator-.*win-x64-setup\.exe$", PatternOptions)]
     private static partial Regex NavigatorInstaller();
+
+    [GeneratedRegex(@"^ExileLens-.*win-x64-setup\.exe$", PatternOptions)]
+    private static partial Regex ExileLensInstaller();
 }
