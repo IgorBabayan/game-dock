@@ -123,7 +123,7 @@
                             <CheckBox DockPanel.Dock="Left"
                                       VerticalAlignment="Center"
                                       IsChecked="{Binding IsSelected}"
-                                      ToolTip.Tip="Select for Install selected / Update selected"
+                                      ToolTip.Tip="Select for Install / Update / Remove selected"
                                       AutomationProperties.Name="Select app" />
                             <TextBlock DockPanel.Dock="Left"
                                        VerticalAlignment="Center"
@@ -219,7 +219,7 @@
                     <CheckBox Grid.Column="0"
                               VerticalAlignment="Center"
                               IsChecked="{Binding IsSelected}"
-                              ToolTip.Tip="Select for Install selected / Update selected"
+                              ToolTip.Tip="Select for Install / Update / Remove selected"
                               AutomationProperties.Name="Select app" />
                     <Image Grid.Column="1"
                            Width="36"
@@ -407,6 +407,12 @@
                             IsVisible="{Binding HasUpdates}" />
                     <Button Margin="0,0,10,8"
                             Theme="{StaticResource OutlineButton}"
+                            ToolTip.Tip="Remove every installed app (asks first)"
+                            Content="{Binding RemoveAllText}"
+                            Command="{Binding RemoveAllCommand}"
+                            IsVisible="{Binding HasRemovable}" />
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource OutlineButton}"
                             ToolTip.Tip="Install the checked apps that are not installed yet"
                             Content="{Binding InstallSelectedText}"
                             Command="{Binding InstallSelectedCommand}"
@@ -417,6 +423,12 @@
                             Content="{Binding UpdateSelectedText}"
                             Command="{Binding UpdateSelectedCommand}"
                             IsVisible="{Binding HasUpdatableSelection}" />
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource OutlineButton}"
+                            ToolTip.Tip="Remove the checked apps that are installed (asks first)"
+                            Content="{Binding RemoveSelectedText}"
+                            Command="{Binding RemoveSelectedCommand}"
+                            IsVisible="{Binding HasRemovableSelection}" />
                 </WrapPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">

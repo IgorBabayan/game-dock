@@ -138,8 +138,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>A batch (Install all / Update all / Install selected / Update selected) is running.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(InstallAllCommand), nameof(UpdateAllCommand), nameof(InstallSelectedCommand),
-        nameof(UpdateSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(InstallAllCommand), nameof(UpdateAllCommand), nameof(RemoveAllCommand),
+        nameof(InstallSelectedCommand), nameof(UpdateSelectedCommand), nameof(RemoveSelectedCommand))]
     private bool _isBatchRunning;
 
     public int InstallableCount => _batch.Installable;
@@ -154,6 +154,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string UpdateAllText => AppBatch.Label("UPDATE ALL", _batch.Updatable);
 
+    public bool HasRemovable => _batch.CanRemoveAll;
+
+    public string RemoveAllText => AppBatch.Label("REMOVE ALL", _batch.Removable);
+
     /// <summary>Two or more apps are selected and at least one of them can be installed.</summary>
     public bool HasInstallableSelection => _batch.CanInstallSelected;
 
@@ -163,6 +167,11 @@ public sealed partial class MainViewModel : ObservableObject
     public bool HasUpdatableSelection => _batch.CanUpdateSelected;
 
     public string UpdateSelectedText => AppBatch.Label("UPDATE SELECTED", _batch.SelectedUpdatable);
+
+    /// <summary>Two or more apps are selected and at least one of them is installed.</summary>
+    public bool HasRemovableSelection => _batch.CanRemoveSelected;
+
+    public string RemoveSelectedText => AppBatch.Label("REMOVE SELECTED", _batch.SelectedRemovable);
 
     public bool HasLauncherUpdate => _autoUpdater.AvailableUpdate is not null;
 
@@ -257,45 +266,86 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Installs every app that is not installed yet, one after another.</summary>
     [RelayCommand(CanExecute = nameof(CanInstallAll))]
     private Task InstallAllAsync() =>
-        RunBatchAsync(_apps, static a => a.CanInstallNow, static a => a.InstallCommand, clearSelection: false);
+        RunBatchAsync(_apps, static a => a.CanInstallNow, static a => a.InstallCommand.ExecuteAsync(null),
+            clearSelection: false);
 
     private bool CanInstallAll() => !IsBatchRunning && _batch.CanInstallAll;
 
     /// <summary>Updates every app that has a newer release, one after another.</summary>
     [RelayCommand(CanExecute = nameof(CanUpdateAll))]
     private Task UpdateAllAsync() =>
-        RunBatchAsync(_apps, static a => a.CanUpdateNow, static a => a.UpdateCommand, clearSelection: false);
+        RunBatchAsync(_apps, static a => a.CanUpdateNow, static a => a.UpdateCommand.ExecuteAsync(null),
+            clearSelection: false);
 
     private bool CanUpdateAll() => !IsBatchRunning && _batch.CanUpdateAll;
 
     /// <summary>Installs the selected apps that are not installed yet, one after another.</summary>
     [RelayCommand(CanExecute = nameof(CanInstallSelected))]
     private Task InstallSelectedAsync() =>
-        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanInstallNow, static a => a.InstallCommand,
-            clearSelection: true);
+        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanInstallNow,
+            static a => a.InstallCommand.ExecuteAsync(null), clearSelection: true);
 
     private bool CanInstallSelected() => !IsBatchRunning && _batch.CanInstallSelected;
 
     /// <summary>Updates the selected apps that have a newer release, one after another.</summary>
     [RelayCommand(CanExecute = nameof(CanUpdateSelected))]
     private Task UpdateSelectedAsync() =>
-        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanUpdateNow, static a => a.UpdateCommand,
-            clearSelection: true);
+        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanUpdateNow,
+            static a => a.UpdateCommand.ExecuteAsync(null), clearSelection: true);
 
     private bool CanUpdateSelected() => !IsBatchRunning && _batch.CanUpdateSelected;
+
+    /// <summary>Removes every installed app, one after another, after a single confirmation.</summary>
+    [RelayCommand(CanExecute = nameof(CanRemoveAll))]
+    private Task RemoveAllAsync() => RemoveBatchAsync(_apps, clearSelection: false);
+
+    private bool CanRemoveAll() => !IsBatchRunning && _batch.CanRemoveAll;
+
+    /// <summary>Removes the selected installed apps, one after another, after a single confirmation.</summary>
+    [RelayCommand(CanExecute = nameof(CanRemoveSelected))]
+    private Task RemoveSelectedAsync() =>
+        RemoveBatchAsync(_apps.Where(static a => a.IsSelected), clearSelection: true);
+
+    private bool CanRemoveSelected() => !IsBatchRunning && _batch.CanRemoveSelected;
+
+    private async Task RemoveBatchAsync(IEnumerable<AppCardViewModel> apps, bool clearSelection)
+    {
+        var targets = apps.Where(static a => a.CanRemoveNow).ToList();
+        if (targets.Count == 0)
+            return;
+
+        // Guard while the dialog is open, so the buttons cannot start another batch behind it.
+        IsBatchRunning = true;
+        bool confirmed;
+        try
+        {
+            var (title, message) = AppBatch.RemoveConfirmation(targets.Select(static a => a.Name).ToList());
+            confirmed = await _dialogs.ConfirmAsync(title, message, "Remove", isDestructive: true);
+        }
+        finally
+        {
+            IsBatchRunning = false;
+        }
+
+        if (confirmed)
+        {
+            await RunBatchAsync(targets, static a => a.CanRemoveNow, static a => a.RemoveWithoutConfirmationAsync(),
+                clearSelection);
+        }
+    }
 
     /// <param name="clearSelection">Unchecks each app once its operation finished.</param>
     private async Task RunBatchAsync(
         IEnumerable<AppCardViewModel> apps,
         Func<AppCardViewModel, bool> canRun,
-        Func<AppCardViewModel, IAsyncRelayCommand> command,
+        Func<AppCardViewModel, Task> run,
         bool clearSelection)
     {
         IsBatchRunning = true;
         try
         {
             Action<AppCardViewModel>? onCompleted = clearSelection ? static a => a.IsSelected = false : null;
-            await AppBatch.RunAsync(apps, canRun, a => command(a).ExecuteAsync(null), onCompleted);
+            await AppBatch.RunAsync(apps, canRun, run, onCompleted);
         }
         finally
         {
@@ -432,7 +482,8 @@ public sealed partial class MainViewModel : ObservableObject
             _apps,
             static a => a.IsSelected,
             static a => a.CanInstallNow,
-            static a => a.CanUpdateNow);
+            static a => a.CanUpdateNow,
+            static a => a.CanRemoveNow);
 
         if (batch == _batch)
             return;
@@ -445,15 +496,21 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(UpdateCount));
         OnPropertyChanged(nameof(HasUpdates));
         OnPropertyChanged(nameof(UpdateAllText));
+        OnPropertyChanged(nameof(HasRemovable));
+        OnPropertyChanged(nameof(RemoveAllText));
         OnPropertyChanged(nameof(HasInstallableSelection));
         OnPropertyChanged(nameof(InstallSelectedText));
         OnPropertyChanged(nameof(HasUpdatableSelection));
         OnPropertyChanged(nameof(UpdateSelectedText));
+        OnPropertyChanged(nameof(HasRemovableSelection));
+        OnPropertyChanged(nameof(RemoveSelectedText));
 
         InstallAllCommand.NotifyCanExecuteChanged();
         UpdateAllCommand.NotifyCanExecuteChanged();
+        RemoveAllCommand.NotifyCanExecuteChanged();
         InstallSelectedCommand.NotifyCanExecuteChanged();
         UpdateSelectedCommand.NotifyCanExecuteChanged();
+        RemoveSelectedCommand.NotifyCanExecuteChanged();
     }
 
     private void SaveViewSettings()

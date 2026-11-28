@@ -239,8 +239,19 @@ public sealed partial class AppCardViewModel : ObservableObject
 
     private bool CanReinstall() => !IsBusy && IsInstalled && CanInstall;
 
-    [RelayCommand(CanExecute = nameof(CanRemove))]
-    private async Task RemoveAsync()
+    [RelayCommand(CanExecute = nameof(CanRemoveNow))]
+    private Task RemoveAsync() => RemoveCoreAsync(confirm: true);
+
+    /// <summary>Remove can run now (also used by "Remove all" / "Remove selected").</summary>
+    public bool CanRemoveNow => !IsBusy && IsInstalled;
+
+    /// <summary>
+    /// Removes the app without asking: "Remove all" / "Remove selected" confirm once for the whole batch.
+    /// A running app is still skipped with a warning.
+    /// </summary>
+    public Task RemoveWithoutConfirmationAsync() => CanRemoveNow ? RemoveCoreAsync(confirm: false) : Task.CompletedTask;
+
+    private async Task RemoveCoreAsync(bool confirm)
     {
         if (Installed is not { } installed)
             return;
@@ -251,7 +262,7 @@ public sealed partial class AppCardViewModel : ObservableObject
             return;
         }
 
-        if (!await _dialogs.ConfirmAsync(
+        if (confirm && !await _dialogs.ConfirmAsync(
                 $"Remove {Name}?",
                 $"{Name} will be uninstalled from\n{installed.InstallFolder}\n\nYour saves and settings are not deleted.",
                 "Remove",
@@ -274,8 +285,6 @@ public sealed partial class AppCardViewModel : ObservableObject
             EndOperation();
         }
     }
-
-    private bool CanRemove() => !IsBusy && IsInstalled;
 
     [RelayCommand(CanExecute = nameof(CanCancelOperation))]
     private void Cancel() => _operation?.Cancel();

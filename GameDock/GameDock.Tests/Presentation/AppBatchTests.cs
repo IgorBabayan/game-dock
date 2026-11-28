@@ -4,17 +4,24 @@ namespace GameDock.Tests.Presentation;
 
 public class AppBatchTests
 {
-    private sealed class Item(string name, bool selected = false, bool installable = false, bool updatable = false)
+    private sealed class Item(
+        string name,
+        bool selected = false,
+        bool installable = false,
+        bool updatable = false,
+        bool removable = false)
     {
         public string Name { get; } = name;
         public bool Selected { get; set; } = selected;
         public bool Installable { get; set; } = installable;
         public bool Updatable { get; set; } = updatable;
+        public bool Removable { get; set; } = removable;
         public override string ToString() => Name;
     }
 
     private static BatchCounts Count(params Item[] items) =>
-        AppBatch.Count(items, static i => i.Selected, static i => i.Installable, static i => i.Updatable);
+        AppBatch.Count(items, static i => i.Selected, static i => i.Installable, static i => i.Updatable,
+            static i => i.Removable);
 
     // ===== Count =====
 
@@ -28,6 +35,8 @@ public class AppBatchTests
         Assert.False(counts.CanUpdateAll);
         Assert.False(counts.CanInstallSelected);
         Assert.False(counts.CanUpdateSelected);
+        Assert.False(counts.CanRemoveAll);
+        Assert.False(counts.CanRemoveSelected);
     }
 
     [Fact]
@@ -36,11 +45,13 @@ public class AppBatchTests
         var counts = Count(
             new Item("a", installable: true),
             new Item("b", selected: true, installable: true),
-            new Item("c", updatable: true),
-            new Item("d", selected: true, updatable: true),
-            new Item("e", selected: true));
+            new Item("c", updatable: true, removable: true),
+            new Item("d", selected: true, updatable: true, removable: true),
+            new Item("e", selected: true, removable: true));
 
-        Assert.Equal(new BatchCounts(Installable: 2, Updatable: 2, Selected: 3, SelectedInstallable: 1, SelectedUpdatable: 1),
+        Assert.Equal(
+            new BatchCounts(Installable: 2, Updatable: 2, Removable: 3, Selected: 3, SelectedInstallable: 1,
+                SelectedUpdatable: 1, SelectedRemovable: 2),
             counts);
     }
 
@@ -54,6 +65,24 @@ public class AppBatchTests
     }
 
     [Fact]
+    public void CanRemoveAll_FollowsTheInstalledApps()
+    {
+        Assert.True(Count(new Item("a", removable: true), new Item("b", installable: true)).CanRemoveAll);
+        Assert.False(Count(new Item("a", installable: true)).CanRemoveAll);
+    }
+
+    [Fact]
+    public void RemoveSelected_NeedsTwoSelectedApps_AndOneInstalled()
+    {
+        Assert.False(Count(new Item("a", selected: true, removable: true), new Item("b", removable: true))
+            .CanRemoveSelected);
+        Assert.True(Count(new Item("a", selected: true, removable: true), new Item("b", selected: true, installable: true))
+            .CanRemoveSelected);
+        Assert.False(Count(new Item("a", selected: true, installable: true), new Item("b", selected: true, installable: true))
+            .CanRemoveSelected);
+    }
+
+    [Fact]
     public void SelectedButtons_NeedAtLeastTwoSelectedApps()
     {
         var one = Count(
@@ -63,6 +92,7 @@ public class AppBatchTests
         Assert.False(one.HasMultiSelection);
         Assert.False(one.CanInstallSelected);
         Assert.False(one.CanUpdateSelected);
+        Assert.False(one.CanRemoveSelected);
     }
 
     [Fact]
@@ -104,9 +134,33 @@ public class AppBatchTests
     [InlineData("UPDATE ALL", 1, "UPDATE ALL (1)")]
     [InlineData("INSTALL SELECTED", 2, "INSTALL SELECTED (2)")]
     [InlineData("UPDATE SELECTED", 0, "UPDATE SELECTED (0)")]
+    [InlineData("REMOVE ALL", 4, "REMOVE ALL (4)")]
+    [InlineData("REMOVE SELECTED", 2, "REMOVE SELECTED (2)")]
     public void Label_AppendsTheCount(string action, int count, string expected)
     {
         Assert.Equal(expected, AppBatch.Label(action, count));
+    }
+
+    // ===== RemoveConfirmation =====
+
+    [Fact]
+    public void RemoveConfirmation_OneApp_NamesIt()
+    {
+        var (title, message) = AppBatch.RemoveConfirmation(new[] { "GD Save Editor" });
+
+        Assert.Equal("Remove GD Save Editor?", title);
+        Assert.StartsWith("GD Save Editor will be uninstalled.", message);
+        Assert.EndsWith("Your saves and settings are not deleted.", message);
+    }
+
+    [Fact]
+    public void RemoveConfirmation_SeveralApps_ListsEveryApp()
+    {
+        var (title, message) = AppBatch.RemoveConfirmation(new[] { "Navigator", "Exile Lens", "ED Assistant" });
+
+        Assert.Equal("Remove 3 apps?", title);
+        Assert.Contains("•  Navigator\n•  Exile Lens\n•  ED Assistant", message);
+        Assert.EndsWith("Your saves and settings are not deleted.", message);
     }
 
     // ===== RunAsync =====

@@ -7,9 +7,11 @@ namespace GameDock.Presentation.ViewModels;
 public readonly record struct BatchCounts(
     int Installable,
     int Updatable,
+    int Removable,
     int Selected,
     int SelectedInstallable,
-    int SelectedUpdatable)
+    int SelectedUpdatable,
+    int SelectedRemovable)
 {
     /// <summary>"Install selected" / "Update selected" appear only from this many selected apps.</summary>
     public const int MinSelection = 2;
@@ -18,11 +20,15 @@ public readonly record struct BatchCounts(
 
     public bool CanUpdateAll => Updatable > 0;
 
+    public bool CanRemoveAll => Removable > 0;
+
     public bool HasMultiSelection => Selected >= MinSelection;
 
     public bool CanInstallSelected => HasMultiSelection && SelectedInstallable > 0;
 
     public bool CanUpdateSelected => HasMultiSelection && SelectedUpdatable > 0;
+
+    public bool CanRemoveSelected => HasMultiSelection && SelectedRemovable > 0;
 }
 
 /// <summary>Counting and sequential execution behind the batch buttons. Free of UI types so it can be unit tested.</summary>
@@ -33,20 +39,25 @@ public static class AppBatch
         IReadOnlyList<T> items,
         Func<T, bool> isSelected,
         Func<T, bool> canInstall,
-        Func<T, bool> canUpdate)
+        Func<T, bool> canUpdate,
+        Func<T, bool> canRemove)
     {
-        int installable = 0, updatable = 0, selected = 0, selectedInstallable = 0, selectedUpdatable = 0;
+        int installable = 0, updatable = 0, removable = 0;
+        int selected = 0, selectedInstallable = 0, selectedUpdatable = 0, selectedRemovable = 0;
 
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
             var install = canInstall(item);
             var update = canUpdate(item);
+            var remove = canRemove(item);
 
             if (install)
                 installable++;
             if (update)
                 updatable++;
+            if (remove)
+                removable++;
 
             if (!isSelected(item))
                 continue;
@@ -56,9 +67,24 @@ public static class AppBatch
                 selectedInstallable++;
             if (update)
                 selectedUpdatable++;
+            if (remove)
+                selectedRemovable++;
         }
 
-        return new BatchCounts(installable, updatable, selected, selectedInstallable, selectedUpdatable);
+        return new BatchCounts(
+            installable, updatable, removable, selected, selectedInstallable, selectedUpdatable, selectedRemovable);
+    }
+
+    /// <summary>Text of the single confirmation shown before "Remove all" / "Remove selected".</summary>
+    public static (string Title, string Message) RemoveConfirmation(IReadOnlyList<string> names)
+    {
+        if (names.Count == 1)
+            return ($"Remove {names[0]}?",
+                $"{names[0]} will be uninstalled.\n\nYour saves and settings are not deleted.");
+
+        var list = string.Join("\n", names.Select(static n => $"•  {n}"));
+        return ($"Remove {names.Count} apps?",
+            $"These apps will be uninstalled:\n{list}\n\nYour saves and settings are not deleted.");
     }
 
     /// <summary>Text of a batch button, e.g. "INSTALL ALL (3)".</summary>
