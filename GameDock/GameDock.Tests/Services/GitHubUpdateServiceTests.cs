@@ -81,7 +81,8 @@ public class GitHubUpdateServiceTests
     {
         await _service.CheckForUpdateAsync();
 
-        var pattern = Assert.IsType<Regex>(_client.Pattern);
+        // Not IsType: on Windows the pattern is a [GeneratedRegex], i.e. a generated subclass of Regex.
+        var pattern = Assert.IsAssignableFrom<Regex>(_client.Pattern);
         if (OperatingSystem.IsWindows())
         {
             Assert.Matches(pattern, "GameDock-Setup-0.1.12.exe");
