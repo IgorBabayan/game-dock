@@ -117,10 +117,16 @@
                     BorderThickness="1">
                 <Grid RowDefinitions="Auto,*,Auto">
 
-                    <!-- version / GitHub -->
+                    <!-- selection / version / GitHub -->
                     <Border Grid.Row="0" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,0,0,1" Padding="20,10,12,10">
                         <DockPanel LastChildFill="False">
+                            <CheckBox DockPanel.Dock="Left"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsSelected}"
+                                      ToolTip.Tip="Select for Install selected / Update selected"
+                                      AutomationProperties.Name="Select app" />
                             <TextBlock DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
                                        Theme="{StaticResource MonoLabel}"
                                        Foreground="{Binding VersionBrush, TargetNullValue={StaticResource SecondaryForegroundBrush}}"
                                        Text="{Binding VersionText}" />
@@ -208,16 +214,21 @@
                     Background="{StaticResource CardBackgroundBrush}"
                     BorderBrush="{StaticResource CardBorderBrush}"
                     BorderThickness="1">
-                <!-- icon, name, version, status / progress, actions -->
-                <Grid ColumnDefinitions="Auto,*,110,260,Auto">
-                    <Image Grid.Column="0"
+                <!-- selection, icon, name, version, status / progress, actions -->
+                <Grid ColumnDefinitions="Auto,Auto,*,110,260,Auto">
+                    <CheckBox Grid.Column="0"
+                              VerticalAlignment="Center"
+                              IsChecked="{Binding IsSelected}"
+                              ToolTip.Tip="Select for Install selected / Update selected"
+                              AutomationProperties.Name="Select app" />
+                    <Image Grid.Column="1"
                            Width="36"
                            Height="36"
                            Source="{Binding Icon}"
                            Stretch="UniformToFill"
                            RenderOptions.BitmapInterpolationMode="HighQuality" />
 
-                    <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="2" Margin="14,0,12,0" VerticalAlignment="Center">
                         <ContentControl Content="{Binding}" ContentTemplate="{StaticResource AppNameTemplate}" FontSize="15" />
                         <TextBlock FontSize="12" TextTrimming="CharacterEllipsis"
                                    Foreground="{StaticResource SecondaryForegroundBrush}">
@@ -225,12 +236,12 @@
                         </TextBlock>
                     </StackPanel>
 
-                    <TextBlock Grid.Column="2"
+                    <TextBlock Grid.Column="3"
                                Theme="{StaticResource MonoLabel}"
                                Foreground="{Binding VersionBrush, TargetNullValue={StaticResource SecondaryForegroundBrush}}"
                                Text="{Binding VersionText}" />
 
-                    <Panel Grid.Column="3" Margin="0,0,12,0" VerticalAlignment="Center">
+                    <Panel Grid.Column="4" Margin="0,0,12,0" VerticalAlignment="Center">
                         <Border Theme="{StaticResource StatusChip}"
                                 Classes.update="{Binding IsUpdateAvailable}"
                                 IsVisible="{Binding HasStatus}">
@@ -243,7 +254,7 @@
                                         IsVisible="{Binding IsBusy}" />
                     </Panel>
 
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center"
                                 IsVisible="{Binding !IsBusy}">
                         <Button Width="110"
                                 Theme="{StaticResource AppPrimaryButton}"
@@ -368,23 +379,47 @@
             </Border>
 
             <!-- ===== Toolbar ===== -->
-            <Grid Grid.Row="1" Margin="20,18,20,0" ColumnDefinitions="Auto,*,Auto">
+            <Grid Grid.Row="1" Margin="20,18,20,0" ColumnDefinitions="*,Auto">
 
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button Theme="{StaticResource IconButton}"
+                <!--
+                    Refresh and the batch buttons. Wraps on narrow windows instead of running under the sort / search
+                    controls (children keep a bottom margin, cancelled by the panel's negative one).
+                -->
+                <WrapPanel Grid.Column="0" Margin="0,0,12,-8" VerticalAlignment="Top">
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource IconButton}"
                             ToolTip.Tip="Check for new releases (F5)"
                             AutomationProperties.Name="Check for new releases"
                             Command="{Binding RefreshCommand}">
                         <PathIcon Width="13" Height="13" Data="{StaticResource Icon.Refresh}" />
                     </Button>
-                    <Button Margin="10,0,0,0"
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource OutlineButton}"
+                            ToolTip.Tip="Install every app that is not installed yet"
+                            Content="{Binding InstallAllText}"
+                            Command="{Binding InstallAllCommand}"
+                            IsVisible="{Binding HasInstallable}" />
+                    <Button Margin="0,0,10,8"
                             Theme="{StaticResource PrimaryButton}"
+                            ToolTip.Tip="Update every app that has a newer release"
                             Content="{Binding UpdateAllText}"
                             Command="{Binding UpdateAllCommand}"
                             IsVisible="{Binding HasUpdates}" />
-                </StackPanel>
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource OutlineButton}"
+                            ToolTip.Tip="Install the checked apps that are not installed yet"
+                            Content="{Binding InstallSelectedText}"
+                            Command="{Binding InstallSelectedCommand}"
+                            IsVisible="{Binding HasInstallableSelection}" />
+                    <Button Margin="0,0,10,8"
+                            Theme="{StaticResource PrimaryButton}"
+                            ToolTip.Tip="Update the checked apps that have a newer release"
+                            Content="{Binding UpdateSelectedText}"
+                            Command="{Binding UpdateSelectedCommand}"
+                            IsVisible="{Binding HasUpdatableSelection}" />
+                </WrapPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                     <TextBlock Margin="0,0,10,0" Theme="{StaticResource MonoLabel}" Text="SORT"
                                Foreground="{StaticResource MutedForegroundBrush}" />
                     <ComboBox Width="190"

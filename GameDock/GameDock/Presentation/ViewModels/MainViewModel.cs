@@ -31,6 +31,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     private DateTimeOffset? _lastChecked;
 
+    /// <summary>Last counts behind the batch buttons; notifications are raised only when they change.</summary>
+    private BatchCounts _batch;
+
     /// <summary>
     /// &gt; 0 while many cards change at once (refresh, activation): their InstalledStateChanged events are folded into
     /// a single <see cref="ApplyView"/> at the end instead of one rebuild per card.
@@ -133,11 +136,33 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasNoMatches => InstalledApps.Count == 0 && AvailableApps.Count == 0;
 
-    public int UpdateCount => _apps.Count(a => a.IsUpdateAvailable);
+    /// <summary>A batch (Install all / Update all / Install selected / Update selected) is running.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(InstallAllCommand), nameof(UpdateAllCommand), nameof(InstallSelectedCommand),
+        nameof(UpdateSelectedCommand))]
+    private bool _isBatchRunning;
 
-    public bool HasUpdates => UpdateCount > 0;
+    public int InstallableCount => _batch.Installable;
 
-    public string UpdateAllText => UpdateCount == 1 ? "UPDATE 1 APP" : $"UPDATE {UpdateCount} APPS";
+    public bool HasInstallable => _batch.CanInstallAll;
+
+    public string InstallAllText => AppBatch.Label("INSTALL ALL", _batch.Installable);
+
+    public int UpdateCount => _batch.Updatable;
+
+    public bool HasUpdates => _batch.CanUpdateAll;
+
+    public string UpdateAllText => AppBatch.Label("UPDATE ALL", _batch.Updatable);
+
+    /// <summary>Two or more apps are selected and at least one of them can be installed.</summary>
+    public bool HasInstallableSelection => _batch.CanInstallSelected;
+
+    public string InstallSelectedText => AppBatch.Label("INSTALL SELECTED", _batch.SelectedInstallable);
+
+    /// <summary>Two or more apps are selected and at least one of them has an update.</summary>
+    public bool HasUpdatableSelection => _batch.CanUpdateSelected;
+
+    public string UpdateSelectedText => AppBatch.Label("UPDATE SELECTED", _batch.SelectedUpdatable);
 
     public bool HasLauncherUpdate => _autoUpdater.AvailableUpdate is not null;
 
@@ -229,14 +254,52 @@ public sealed partial class MainViewModel : ObservableObject
 
     private bool CanRefresh() => !IsRefreshing;
 
+    /// <summary>Installs every app that is not installed yet, one after another.</summary>
+    [RelayCommand(CanExecute = nameof(CanInstallAll))]
+    private Task InstallAllAsync() =>
+        RunBatchAsync(_apps, static a => a.CanInstallNow, static a => a.InstallCommand, clearSelection: false);
+
+    private bool CanInstallAll() => !IsBatchRunning && _batch.CanInstallAll;
+
     /// <summary>Updates every app that has a newer release, one after another.</summary>
-    [RelayCommand]
-    private async Task UpdateAllAsync()
+    [RelayCommand(CanExecute = nameof(CanUpdateAll))]
+    private Task UpdateAllAsync() =>
+        RunBatchAsync(_apps, static a => a.CanUpdateNow, static a => a.UpdateCommand, clearSelection: false);
+
+    private bool CanUpdateAll() => !IsBatchRunning && _batch.CanUpdateAll;
+
+    /// <summary>Installs the selected apps that are not installed yet, one after another.</summary>
+    [RelayCommand(CanExecute = nameof(CanInstallSelected))]
+    private Task InstallSelectedAsync() =>
+        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanInstallNow, static a => a.InstallCommand,
+            clearSelection: true);
+
+    private bool CanInstallSelected() => !IsBatchRunning && _batch.CanInstallSelected;
+
+    /// <summary>Updates the selected apps that have a newer release, one after another.</summary>
+    [RelayCommand(CanExecute = nameof(CanUpdateSelected))]
+    private Task UpdateSelectedAsync() =>
+        RunBatchAsync(_apps.Where(static a => a.IsSelected), static a => a.CanUpdateNow, static a => a.UpdateCommand,
+            clearSelection: true);
+
+    private bool CanUpdateSelected() => !IsBatchRunning && _batch.CanUpdateSelected;
+
+    /// <param name="clearSelection">Unchecks each app once its operation finished.</param>
+    private async Task RunBatchAsync(
+        IEnumerable<AppCardViewModel> apps,
+        Func<AppCardViewModel, bool> canRun,
+        Func<AppCardViewModel, IAsyncRelayCommand> command,
+        bool clearSelection)
     {
-        foreach (var app in _apps.Where(a => a.IsUpdateAvailable).ToList())
+        IsBatchRunning = true;
+        try
         {
-            if (app.UpdateCommand.CanExecute(null))
-                await app.UpdateCommand.ExecuteAsync(null);
+            Action<AppCardViewModel>? onCompleted = clearSelection ? static a => a.IsSelected = false : null;
+            await AppBatch.RunAsync(apps, canRun, a => command(a).ExecuteAsync(null), onCompleted);
+        }
+        finally
+        {
+            IsBatchRunning = false;
         }
     }
 
@@ -349,15 +412,48 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void OnAppPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AppCardViewModel.IsUpdateAvailable))
-            OnUpdatesChanged();
+        // Download progress raises PropertyChanged many times a second: react only to what the batch buttons use.
+        switch (e.PropertyName)
+        {
+            case nameof(AppCardViewModel.IsUpdateAvailable):
+            case nameof(AppCardViewModel.IsInstalled):
+            case nameof(AppCardViewModel.CanInstall):
+            case nameof(AppCardViewModel.IsBusy):
+            case nameof(AppCardViewModel.IsSelected):
+                OnUpdatesChanged();
+                break;
+        }
     }
 
+    /// <summary>Recounts the batch buttons; raises notifications only if a count changed.</summary>
     private void OnUpdatesChanged()
     {
+        var batch = AppBatch.Count(
+            _apps,
+            static a => a.IsSelected,
+            static a => a.CanInstallNow,
+            static a => a.CanUpdateNow);
+
+        if (batch == _batch)
+            return;
+
+        _batch = batch;
+
+        OnPropertyChanged(nameof(InstallableCount));
+        OnPropertyChanged(nameof(HasInstallable));
+        OnPropertyChanged(nameof(InstallAllText));
         OnPropertyChanged(nameof(UpdateCount));
         OnPropertyChanged(nameof(HasUpdates));
         OnPropertyChanged(nameof(UpdateAllText));
+        OnPropertyChanged(nameof(HasInstallableSelection));
+        OnPropertyChanged(nameof(InstallSelectedText));
+        OnPropertyChanged(nameof(HasUpdatableSelection));
+        OnPropertyChanged(nameof(UpdateSelectedText));
+
+        InstallAllCommand.NotifyCanExecuteChanged();
+        UpdateAllCommand.NotifyCanExecuteChanged();
+        InstallSelectedCommand.NotifyCanExecuteChanged();
+        UpdateSelectedCommand.NotifyCanExecuteChanged();
     }
 
     private void SaveViewSettings()

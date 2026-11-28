@@ -90,6 +90,10 @@ public sealed partial class AppCardViewModel : ObservableObject
     [ObservableProperty]
     private bool _canCancel;
 
+    /// <summary>Checked on the card: the app is part of "Install selected" / "Update selected".</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     public bool IsInstalled => Installed is not null;
 
     public bool CanInstall => Latest?.Installer is not null;
@@ -220,12 +224,14 @@ public sealed partial class AppCardViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanInstallNow))]
     private Task InstallAsync() => RunInstallerAsync(isUpdate: false);
 
-    private bool CanInstallNow() => !IsBusy && !IsInstalled && CanInstall;
+    /// <summary>Install can run now (also used by "Install all" / "Install selected").</summary>
+    public bool CanInstallNow => !IsBusy && !IsInstalled && CanInstall;
 
-    [RelayCommand(CanExecute = nameof(CanUpdate))]
+    [RelayCommand(CanExecute = nameof(CanUpdateNow))]
     private Task UpdateAsync() => RunInstallerAsync(isUpdate: true);
 
-    private bool CanUpdate() => !IsBusy && IsUpdateAvailable;
+    /// <summary>Update can run now (also used by "Update all" / "Update selected").</summary>
+    public bool CanUpdateNow => !IsBusy && IsUpdateAvailable;
 
     /// <summary>Installs the latest release over the current one (repairs a broken install).</summary>
     [RelayCommand(CanExecute = nameof(CanReinstall))]
