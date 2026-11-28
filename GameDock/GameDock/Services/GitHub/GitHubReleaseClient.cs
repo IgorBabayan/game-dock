@@ -15,7 +15,7 @@ namespace GameDock.Services.GitHub;
 public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
 {
     /// <summary>Pauses between download attempts; one more attempt than there are delays.</summary>
-    private static readonly TimeSpan[] DownloadRetryDelays =
+    private static readonly TimeSpan[] DefaultDownloadRetryDelays =
         [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)];
 
     /// <summary>
@@ -35,35 +35,41 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
     /// </summary>
     private readonly HttpClient _downloads;
 
+    private readonly TimeSpan[] _downloadRetryDelays;
+
     public GitHubReleaseClient()
+        : this(CreateHandler(DecompressionMethods.All), CreateHandler(DecompressionMethods.None), DefaultDownloadRetryDelays)
     {
+    }
+
+    /// <summary>Tests: custom transports (no network) and short retry pauses.</summary>
+    internal GitHubReleaseClient(HttpMessageHandler apiHandler, HttpMessageHandler downloadHandler, TimeSpan[] downloadRetryDelays)
+    {
+        ArgumentNullException.ThrowIfNull(apiHandler);
+        ArgumentNullException.ThrowIfNull(downloadHandler);
+        ArgumentNullException.ThrowIfNull(downloadRetryDelays);
+
+        _downloadRetryDelays = downloadRetryDelays;
+
         var version = Assembly.GetEntryAssembly()?.GetName().Version ?? new Version(0, 0, 0);
         // GitHub rejects API requests without a User-Agent.
         var userAgent = new ProductInfoHeaderValue("GameDock", VersionHelper.Normalize(version).ToString());
 
         // Timeouts are controlled per call with cancellation tokens (downloads may take a while).
-        _api = new HttpClient(new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.All,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-            ConnectTimeout = TimeSpan.FromSeconds(15)
-        })
-        {
-            Timeout = Timeout.InfiniteTimeSpan
-        };
+        _api = new HttpClient(apiHandler) { Timeout = Timeout.InfiniteTimeSpan };
         _api.DefaultRequestHeaders.UserAgent.Add(userAgent);
 
-        _downloads = new HttpClient(new SocketsHttpHandler
-        {
-            AutomaticDecompression = DecompressionMethods.None,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(10),
-            ConnectTimeout = TimeSpan.FromSeconds(15)
-        })
-        {
-            Timeout = Timeout.InfiniteTimeSpan
-        };
+        // No automatic decompression, so HTTP range requests (resume) always address the raw bytes of the file.
+        _downloads = new HttpClient(downloadHandler) { Timeout = Timeout.InfiniteTimeSpan };
         _downloads.DefaultRequestHeaders.UserAgent.Add(userAgent);
     }
+
+    private static SocketsHttpHandler CreateHandler(DecompressionMethods decompression) => new()
+    {
+        AutomaticDecompression = decompression,
+        PooledConnectionLifetime = TimeSpan.FromMinutes(10),
+        ConnectTimeout = TimeSpan.FromSeconds(15)
+    };
 
     public async Task<ReleaseInfo?> GetLatestReleaseAsync(
         string owner,
@@ -142,13 +148,13 @@ public sealed class GitHubReleaseClient : IGitHubReleaseClient, IDisposable
                     await DownloadToFileAsync(asset, partialPath, hash, progress, cancellationToken).ConfigureAwait(false);
                     break;
                 }
-                catch (Exception ex) when (attempt < DownloadRetryDelays.Length + 1 &&
+                catch (Exception ex) when (attempt < _downloadRetryDelays.Length + 1 &&
                                            IsTransientDownloadError(ex, cancellationToken))
                 {
                     // GitHub's release CDN regularly answers 502/503/504 for a short while (especially right
                     // after an asset is published) or drops the connection: wait and continue where we stopped.
                     Debug.WriteLine($"Download attempt {attempt} of {asset.Name} failed: {ex.Message}");
-                    await Task.Delay(DownloadRetryDelays[attempt - 1], cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(_downloadRetryDelays[attempt - 1], cancellationToken).ConfigureAwait(false);
                 }
             }
 

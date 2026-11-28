@@ -10,10 +10,18 @@ namespace GameDock.Services.Settings;
 /// </summary>
 public sealed class JsonSettingsService : ISettingsService
 {
-    private readonly string _filePath = Path.Combine(PlatformInfo.SettingsFolder, "settings.json");
+    private readonly string _filePath;
 
     public JsonSettingsService()
+        : this(Path.Combine(PlatformInfo.SettingsFolder, "settings.json"))
     {
+    }
+
+    /// <summary>Tests: settings stored in <paramref name="filePath"/> instead of the user's settings folder.</summary>
+    internal JsonSettingsService(string filePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        _filePath = filePath;
         Current = Load();
     }
 

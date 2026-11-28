@@ -6,6 +6,8 @@ name: Release - Windows, Linux and macOS
 #   - Linux:   self-contained linux-x64 / linux-arm64 folders            -> GameDock-<version>-linux-<arch>.tar.gz
 #   - macOS:   self-contained osx-arm64 / osx-x64 "App Launcher.app"     -> GameDock-<version>-osx-<arch>.zip
 # and publishes one GitHub Release (shown in the "Releases" panel of the repo page) with all of them attached.
+# Nothing is built until the unit tests (GameDock.Tests) pass on Windows, Linux and macOS, for merges and
+# manual runs alike.
 # The newest run is marked as "Latest", which is also what App Launcher's updater reads via /releases/latest
 # (the installer on Windows, the archive for the machine's runtime on Linux / macOS).
 on:
@@ -23,15 +25,55 @@ concurrency:
 
 env:
   PROJECT: GameDock/GameDock/GameDock.csproj
+  SOLUTION: GameDock/GameDock.sln
   CONFIGURATION: Release
   DOTNET_VERSION: 10.0.x
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
 jobs:
-  version:
+  test:
     # Skip PRs that were closed without merging.
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    name: Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Platform-specific code paths (installers, folders, asset patterns): every OS must pass.
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Run tests
+        run: >
+          dotnet test ${{ env.SOLUTION }}
+          -c ${{ env.CONFIGURATION }}
+          --logger "trx;LogFileName=test-results.trx"
+          --logger "console;verbosity=normal"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+          retention-days: 7
+
+  version:
+    # Builds start only after every test job passed.
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}

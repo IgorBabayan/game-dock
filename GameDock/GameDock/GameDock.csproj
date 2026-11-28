@@ -42,6 +42,11 @@
     </ItemGroup>
 
     <ItemGroup>
+      <!-- Unit tests use the internal test hooks (custom HTTP transports, settings file path, JSON contexts). -->
+      <InternalsVisibleTo Include="GameDock.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
       <!-- Embedded so XAML and code can load them with avares:// URIs: window icon, title bar logo and the app icons on the cards. -->
       <AvaloniaResource Include="App.ico" />
       <AvaloniaResource Include="Assets\**\*.png" />
